@@ -115,11 +115,11 @@
   <body>
     <div class="basemap-switcher">
       <div id="osm">
-        <img src="osm_tile.png" />
+        <!-- Background image removed -->
         <div class="icon" style="background-image: url('osm_icon.png')"></div>
       </div>
       <div id="google">
-        <img src="google_tile.png" />
+        <!-- Background image removed -->
         <div
           class="icon"
           style="background-image: url('google_icon.png')"
@@ -132,12 +132,10 @@
       const attribution = new ol.control.Attribution({
         collapsible: false,
       });
-
       // Create OpenStreetMap layer
       const osmLayer = new ol.layer.Tile({
         source: new ol.source.OSM(),
       });
-
       // Create Google Satellite layer
       const googleLayer = new ol.layer.Tile({
         source: new ol.source.XYZ({
@@ -146,7 +144,6 @@
             'Map data © <a href="https://www.google.com/maps">Google</a>',
         }),
       });
-
       // Initialize map with Google Satellite layer
       const map = new ol.Map({
         layers: [googleLayer],
@@ -156,20 +153,18 @@
         target: "map",
         view: new ol.View({
           center: ol.proj.fromLonLat([11.145, 48.765]), // Adjust center to your dataset
-          zoom: 14, // Initial zoom level
+          zoom: 11, // Adjust zoom level to fit your dataset
         }),
       });
 
       // Function to return different styles based on huepferlinge value
       function styleFunction(feature) {
         const huepferlinge = feature.get("huepferlinge");
-
         // Define different styles
         let fillColor = "green";
         if (huepferlinge === 0) {
           fillColor = "orange"; // Change color for huepferlinge = 0
         }
-
         return new ol.style.Style({
           image: new ol.style.Circle({
             radius: 10, // Size of the dot
@@ -183,7 +178,6 @@
           }),
         });
       }
-
       const ToadLayer = new ol.layer.Vector({
         source: new ol.source.Vector({
           url: "biotope.json",
@@ -192,7 +186,6 @@
         style: styleFunction, // Apply the conditional style function
       });
       map.addLayer(ToadLayer);
-
       const select = new ol.interaction.Select({
         style: new ol.style.Style({
           image: new ol.style.Circle({
@@ -208,7 +201,6 @@
         }),
       });
       map.addInteraction(select);
-
       const selectedFeatures = select.getFeatures();
       const popup = document.getElementById("popup");
       let overlay = new ol.Overlay({
@@ -218,56 +210,30 @@
         offset: [0, -10],
       });
       map.addOverlay(overlay);
-
       selectedFeatures.on("add", function (event) {
         const feature = event.target.item(0);
         const properties = feature.getProperties();
         const coordinates = feature.getGeometry().getCoordinates();
-
         popup.innerHTML = `<span class="bold">Anzahl Hüpferlinge:</span> ${
           properties.huepferlinge || "-"
         }<br>
-      <span class="bold">Datum:</span> ${properties.datum || "-"}<br>
-      <span class="bold">Bemerkung:</span> ${properties.bemerkung || "-"}<br>
-      <span class="bold">Region:</span> ${properties.region || "-"}<br>`;
+    <span class="bold">Datum:</span> ${properties.datum || "-"}<br>
+    <span class="bold">Bemerkung:</span> ${properties.bemerkung || "-"}<br>
+    <span class="bold">Region:</span> ${properties.region || "-"}<br>`;
         overlay.setPosition(coordinates);
       });
-
       selectedFeatures.on("remove", function (event) {
         popup.innerHTML = "";
         overlay.setPosition(undefined);
       });
-
       // Event listeners for basemap switcher tiles
       document.getElementById("osm").addEventListener("click", function () {
         map.getLayers().removeAt(0); // Remove the current basemap layer
         map.getLayers().insertAt(0, osmLayer);
       });
-
       document.getElementById("google").addEventListener("click", function () {
         map.getLayers().removeAt(0); // Remove the current basemap layer
         map.getLayers().insertAt(0, googleLayer);
-      });
-
-      // Adjust zoom level to fit extent of ToadLayer features
-      function fitToLayerExtent() {
-        const vectorSource = ToadLayer.getSource();
-        const extent = vectorSource.getExtent();
-
-        // Extend the extent with additional padding (buffer) in pixels
-        const padding = [50, 50, 50, 50]; // top, right, bottom, left padding in pixels
-        map.getView().fit(extent, {
-          size: map.getSize(),
-          padding: padding,
-          maxZoom: 16, // Optional: sets a maximum zoom level to prevent zooming too far out
-        });
-      }
-
-      // Call this function to fit the map to the ToadLayer extent after the layer has loaded
-      ToadLayer.getSource().on("change", function () {
-        if (ToadLayer.getSource().getFeatures().length > 0) {
-          fitToLayerExtent();
-        }
       });
     </script>
   </body>
