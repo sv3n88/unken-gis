@@ -1,0 +1,100 @@
+body {
+    margin: 0;
+    padding: 0;
+    font-family: "Calibri", "Calibri Sans", sans-serif;
+  }
+  #map {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+  }
+  .basemap-switcher {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    background: white;
+    padding: 5px;
+    z-index: 1000;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .basemap-switcher div {
+    position: relative;
+    width: 60px;
+    height: 60px;
+    border-radius: 5px;
+    overflow: hidden;
+    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.2);
+    cursor: pointer;
+    transition: transform 0.2s ease-in-out;
+    background-color: #f0f0f0;
+  }
+  .basemap-switcher div img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .basemap-switcher div:hover {
+    transform: scale(1.05);
+  }
+  .basemap-switcher div .icon {
+    position: absolute;
+    bottom: 5px;
+    right: 5px;
+    width: 50px;
+    height: 50px;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-color: rgba(255, 255, 255, 0.8);
+    border-radius: 3px;
+  }
+  .ol-popup {
+    position: absolute;
+    background-color: white;
+    padding: 10px;
+    border-radius: 5px;
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+    pointer-events: none;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 300px;
+    max-height: none;
+    overflow: visible;
+    white-space: normal;
+    font-size: 20px;
+    font-family: "Calibri", "Calibri Sans", sans-serif;
+  }
+  .ol-popup:after,
+  .ol-popup:before {
+    top: 100%;
+    left: 50%;
+    border: solid transparent;
+    content: " ";
+    height: 0;
+    width: 0;
+    position: absolute;
+    pointer-events: none;
+  }
+  .ol-popup:after {
+    border-color: rgba(255, 255, 255, 0);
+    border-top-color: white;
+    border-width: 10px;
+    margin-left: -10px;
+  }
+  .ol-popup:before {
+    border-color: rgba(0, 0, 0, 0);
+    border-top-color: rgba(0, 0, 0, 0.2);
+    border-width: 11px;
+    margin-left: -11px;
+  }
+  .bold {
+    font-weight: bold;
+  }
