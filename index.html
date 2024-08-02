@@ -132,10 +132,12 @@
       const attribution = new ol.control.Attribution({
         collapsible: false,
       });
+
       // Create OpenStreetMap layer
       const osmLayer = new ol.layer.Tile({
         source: new ol.source.OSM(),
       });
+
       // Create Google Satellite layer
       const googleLayer = new ol.layer.Tile({
         source: new ol.source.XYZ({
@@ -144,6 +146,7 @@
             'Map data © <a href="https://www.google.com/maps">Google</a>',
         }),
       });
+
       // Initialize map with Google Satellite layer
       const map = new ol.Map({
         layers: [googleLayer],
@@ -167,7 +170,7 @@
         }
         return new ol.style.Style({
           image: new ol.style.Circle({
-            radius: 10, // Size of the dot
+            radius: 12.5, // Increased size by 25%
             fill: new ol.style.Fill({
               color: fillColor, // Conditional fill color
             }),
@@ -178,6 +181,7 @@
           }),
         });
       }
+
       const ToadLayer = new ol.layer.Vector({
         source: new ol.source.Vector({
           url: "biotope.json",
@@ -186,10 +190,11 @@
         style: styleFunction, // Apply the conditional style function
       });
       map.addLayer(ToadLayer);
+
       const select = new ol.interaction.Select({
         style: new ol.style.Style({
           image: new ol.style.Circle({
-            radius: 10, // Same size as the original
+            radius: 12.5, // Increased size by 25%
             fill: new ol.style.Fill({
               color: "yellow", // Yellow fill
             }),
@@ -201,6 +206,7 @@
         }),
       });
       map.addInteraction(select);
+
       const selectedFeatures = select.getFeatures();
       const popup = document.getElementById("popup");
       let overlay = new ol.Overlay({
@@ -210,6 +216,7 @@
         offset: [0, -10],
       });
       map.addOverlay(overlay);
+
       selectedFeatures.on("add", function (event) {
         const feature = event.target.item(0);
         const properties = feature.getProperties();
@@ -222,15 +229,18 @@
     <span class="bold">Region:</span> ${properties.region || "-"}<br>`;
         overlay.setPosition(coordinates);
       });
+
       selectedFeatures.on("remove", function (event) {
         popup.innerHTML = "";
         overlay.setPosition(undefined);
       });
+
       // Event listeners for basemap switcher tiles
       document.getElementById("osm").addEventListener("click", function () {
         map.getLayers().removeAt(0); // Remove the current basemap layer
         map.getLayers().insertAt(0, osmLayer);
       });
+
       document.getElementById("google").addEventListener("click", function () {
         map.getLayers().removeAt(0); // Remove the current basemap layer
         map.getLayers().insertAt(0, googleLayer);
