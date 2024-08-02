@@ -21,6 +21,51 @@
         bottom: 0;
         left: 0;
       }
+      .basemap-switcher {
+        position: absolute;
+        bottom: 10px;
+        left: 10px;
+        background: white;
+        padding: 5px;
+        z-index: 1000;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+      .basemap-switcher div {
+        position: relative;
+        width: 80px; /* Increased size for better visibility */
+        height: 80px; /* Increased size for better visibility */
+        border-radius: 5px;
+        overflow: hidden;
+        box-shadow: 0 1px 5px rgba(0, 0, 0, 0.2);
+        cursor: pointer;
+        transition: transform 0.2s ease-in-out;
+        background-color: #f0f0f0; /* Slightly grey background */
+      }
+      .basemap-switcher div img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      .basemap-switcher div:hover {
+        transform: scale(1.05);
+      }
+      .basemap-switcher div .icon {
+        position: absolute;
+        bottom: 5px;
+        right: 5px;
+        width: 40px; /* Doubled the size */
+        height: 40px; /* Doubled the size */
+        background-size: contain;
+        background-repeat: no-repeat;
+        background-position: center;
+        background-color: rgba(255, 255, 255, 0.8);
+        border-radius: 3px;
+      }
       .ol-popup {
         position: absolute;
         background-color: white;
@@ -66,30 +111,50 @@
     </style>
   </head>
   <body>
+    <div class="basemap-switcher">
+      <div id="osm">
+        <img src="osm_tile.png" alt="OSM" />
+        <div class="icon" style="background-image: url('osm_icon.png')"></div>
+      </div>
+      <div id="google">
+        <img src="google_tile.png" alt="Google" />
+        <div
+          class="icon"
+          style="background-image: url('google_icon.png')"
+        ></div>
+      </div>
+    </div>
     <div id="map"></div>
     <div id="popup" class="ol-popup"></div>
     <script>
       const attribution = new ol.control.Attribution({
         collapsible: false,
       });
+
+      // Create OpenStreetMap layer
+      const osmLayer = new ol.layer.Tile({
+        source: new ol.source.OSM(),
+      });
+
+      // Create Google Satellite layer
+      const googleLayer = new ol.layer.Tile({
+        source: new ol.source.XYZ({
+          url: "https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
+          attributions:
+            'Map data © <a href="https://www.google.com/maps">Google</a>',
+        }),
+      });
+
+      // Initialize map with Google Satellite layer
       const map = new ol.Map({
-        layers: [
-          new ol.layer.Tile({
-            source: new ol.source.XYZ({
-              url: "https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}", // Google Satellite Tile URL
-              attributions:
-                'Map data © <a href="https://www.google.com/maps">Google</a>',
-            }),
-          }),
-        ],
+        layers: [googleLayer],
         controls: ol.control.defaults
           .defaults({ attribution: false })
           .extend([attribution]),
         target: "map",
         view: new ol.View({
-          constrainResolution: true,
-          center: ol.proj.fromLonLat([10.4515, 51.1657]), // Center of Germany
-          zoom: 6, // Initial zoom level
+          center: ol.proj.fromLonLat([11.145, 48.765]), // Adjust center to your dataset
+          zoom: 14, // Adjust zoom level to fit your dataset
         }),
       });
 
@@ -117,26 +182,14 @@
         });
       }
 
-      const vectorSource = new ol.source.Vector({
-        url: "biotope.json",
-        format: new ol.format.GeoJSON(),
-      });
-
       const ToadLayer = new ol.layer.Vector({
-        source: vectorSource,
+        source: new ol.source.Vector({
+          url: "biotope.json",
+          format: new ol.format.GeoJSON(),
+        }),
         style: styleFunction, // Apply the conditional style function
       });
       map.addLayer(ToadLayer);
-
-      // Zoom to fit the extent of the features
-      vectorSource.once("change", function () {
-        if (vectorSource.getState() === "ready") {
-          const extent = vectorSource.getExtent();
-          map
-            .getView()
-            .fit(extent, { size: map.getSize(), padding: [50, 50, 50, 50] });
-        }
-      });
 
       const select = new ol.interaction.Select({
         style: new ol.style.Style({
@@ -181,6 +234,17 @@
       selectedFeatures.on("remove", function (event) {
         popup.innerHTML = "";
         overlay.setPosition(undefined);
+      });
+
+      // Event listeners for basemap switcher tiles
+      document.getElementById("osm").addEventListener("click", function () {
+        map.getLayers().removeAt(0); // Remove the current basemap layer
+        map.getLayers().insertAt(0, osmLayer);
+      });
+
+      document.getElementById("google").addEventListener("click", function () {
+        map.getLayers().removeAt(0); // Remove the current basemap layer
+        map.getLayers().insertAt(0, googleLayer);
       });
     </script>
   </body>
