@@ -84,23 +84,36 @@
       })
     });
 
-    const ToadLayer = new ol.layer.Vector({
-      source: new ol.source.Vector({
-        url: 'biotope.json',
-        format: new ol.format.GeoJSON(),
-      }),
-      style: new ol.style.Style({
+    // Function to return different styles based on huepferlinge value
+    function styleFunction(feature) {
+      const huepferlinge = feature.get('huepferlinge');
+
+      // Define different styles
+      let fillColor = 'green';
+      if (huepferlinge === 0) {
+        fillColor = 'orange'; // Change color for huepferlinge = 0
+      }
+
+      return new ol.style.Style({
         image: new ol.style.Circle({
           radius: 10,  // Size of the dot
           fill: new ol.style.Fill({
-            color: 'green'  // Green fill
+            color: fillColor  // Conditional fill color
           }),
           stroke: new ol.style.Stroke({
             color: 'red',  // Red outline
             width: 3  // Thick outline
           })
         })
-      })
+      });
+    }
+
+    const ToadLayer = new ol.layer.Vector({
+      source: new ol.source.Vector({
+        url: 'biotope.json',
+        format: new ol.format.GeoJSON(),
+      }),
+      style: styleFunction // Apply the conditional style function
     });
     map.addLayer(ToadLayer);
 
@@ -135,10 +148,10 @@
       const properties = feature.getProperties();
       const coordinates = feature.getGeometry().getCoordinates();
 
-      popup.innerHTML = `<span class="bold">Anzahl Hüpferlinge:</span> ${properties.huepferlinge}<br>
-      <span class="bold">Datum:</span> ${properties.datum}<br>
-      <span class="bold">Bemerkung:</span> ${properties.bemerkung}<br>
-      <span class="bold">Region:</span> ${properties.region}<br>`;
+      popup.innerHTML = `<span class="bold">Anzahl Hüpferlinge:</span> ${properties.huepferlinge || '-'}<br>
+      <span class="bold">Datum:</span> ${properties.datum || '-'}<br>
+      <span class="bold">Bemerkung:</span> ${properties.bemerkung || '-'}<br>
+      <span class="bold">Region:</span> ${properties.region || '-'}<br>`;
       overlay.setPosition(coordinates);
     });
 
