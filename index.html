@@ -28,11 +28,11 @@
       bottom: 12px;
       left: 50%;
       transform: translateX(-50%);
-      width: 300px; /* Increase the width to handle longer text */
-      max-height: none; /* Remove max-height */
-      overflow: visible; /* Remove scrolling */
-      white-space: normal; /* Allow text wrapping */
-      font-size: 20px; /* Increase font size */
+      width: 300px;
+      max-height: none;
+      overflow: visible;
+      white-space: normal;
+      font-size: 20px;
     }
     .ol-popup:after, .ol-popup:before {
       top: 100%;
@@ -68,11 +68,13 @@
     const attribution = new ol.control.Attribution({
       collapsible: false,
     });
-    const source = new ol.source.OSM();
     const map = new ol.Map({
       layers: [
         new ol.layer.Tile({
-          source: source
+          source: new ol.source.XYZ({
+            url: 'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',  // Google Satellite Tile URL
+            attributions: 'Map data © <a href="https://www.google.com/maps">Google</a>'
+          })
         })
       ],
       controls: ol.control.defaults.defaults({attribution: false}).extend([attribution]),
