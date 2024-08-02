@@ -26,10 +26,12 @@
       box-shadow: 0 0 5px rgba(0,0,0,0.5);
       pointer-events: none;
       bottom: 12px;
-      left: -50%;
+      left: 50%;
       transform: translateX(-50%);
-      width: 200px;
-      white-space: nowrap;
+      width: 300px; /* Increase the width to handle longer text */
+      max-height: none; /* Remove max-height */
+      overflow: visible; /* Remove scrolling */
+      white-space: normal; /* Allow text wrapping */
       font-size: 20px; /* Increase font size */
     }
     .ol-popup:after, .ol-popup:before {
@@ -84,7 +86,7 @@
 
     const ToadLayer = new ol.layer.Vector({
       source: new ol.source.Vector({
-        url: 'data.json',
+        url: 'biotope.json',
         format: new ol.format.GeoJSON(),
       }),
       style: new ol.style.Style({
@@ -133,7 +135,10 @@
       const properties = feature.getProperties();
       const coordinates = feature.getGeometry().getCoordinates();
 
-      popup.innerHTML = `<span class="bold">Name:</span> ${properties.name}<br><span class="bold">IATA:</span> ${properties.iata}`;
+      popup.innerHTML = `<span class="bold">Anzahl Hüpferlinge:</span> ${properties.huepferlinge}<br>
+      <span class="bold">Datum:</span> ${properties.datum}<br>
+      <span class="bold">Bemerkung:</span> ${properties.bemerkung}<br>
+      <span class="bold">Region:</span> ${properties.region}<br>`;
       overlay.setPosition(coordinates);
     });
 
