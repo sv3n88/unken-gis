@@ -115,11 +115,11 @@
   <body>
     <div class="basemap-switcher">
       <div id="osm">
-        <!-- Background image removed -->
+        <img src="osm_tile.png" />
         <div class="icon" style="background-image: url('osm_icon.png')"></div>
       </div>
       <div id="google">
-        <!-- Background image removed -->
+        <img src="google_tile.png" />
         <div
           class="icon"
           style="background-image: url('google_icon.png')"
@@ -156,7 +156,7 @@
         target: "map",
         view: new ol.View({
           center: ol.proj.fromLonLat([11.145, 48.765]), // Adjust center to your dataset
-          zoom: 12, // Adjust zoom level to fit your dataset
+          zoom: 14, // Initial zoom level
         }),
       });
 
@@ -227,9 +227,9 @@
         popup.innerHTML = `<span class="bold">Anzahl Hüpferlinge:</span> ${
           properties.huepferlinge || "-"
         }<br>
-    <span class="bold">Datum:</span> ${properties.datum || "-"}<br>
-    <span class="bold">Bemerkung:</span> ${properties.bemerkung || "-"}<br>
-    <span class="bold">Region:</span> ${properties.region || "-"}<br>`;
+      <span class="bold">Datum:</span> ${properties.datum || "-"}<br>
+      <span class="bold">Bemerkung:</span> ${properties.bemerkung || "-"}<br>
+      <span class="bold">Region:</span> ${properties.region || "-"}<br>`;
         overlay.setPosition(coordinates);
       });
 
@@ -247,6 +247,22 @@
       document.getElementById("google").addEventListener("click", function () {
         map.getLayers().removeAt(0); // Remove the current basemap layer
         map.getLayers().insertAt(0, googleLayer);
+      });
+
+      // Adjust zoom level to fit extent of ToadLayer features
+      function fitToLayerExtent() {
+        const vectorSource = ToadLayer.getSource();
+        const extent = vectorSource.getExtent();
+        map
+          .getView()
+          .fit(extent, { size: map.getSize(), padding: [20, 20, 20, 20] });
+      }
+
+      // Call this function to fit the map to the ToadLayer extent after the layer has loaded
+      ToadLayer.getSource().on("change", function () {
+        if (ToadLayer.getSource().getFeatures().length > 0) {
+          fitToLayerExtent();
+        }
       });
     </script>
   </body>
