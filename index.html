@@ -112,30 +112,32 @@
 
       const touchInteraction = new ol.interaction.Pointer({
         handleDownEvent: function (evt) {
-          if (
-            touchStartTime &&
-            new Date().getTime() - touchStartTime > TOUCH_DELAY
-          ) {
-            const [startX, startY] = touchStartPosition;
-            const [endX, endY] = [evt.clientX, evt.clientY];
-            const distance = Math.sqrt(
-              Math.pow(startX - endX, 2) + Math.pow(startY - endY, 2)
-            );
+          if (touchStartTime) {
+            const currentTime = new Date().getTime();
+            const touchDuration = currentTime - touchStartTime;
 
-            if (distance < TOUCH_DISTANCE_THRESHOLD) {
-              const feature = map.forEachFeatureAtPixel(
-                evt.pixel,
-                function (feature) {
-                  return feature;
-                },
-                {
-                  hitTolerance: 15,
-                }
+            if (touchDuration > TOUCH_DELAY) {
+              const [startX, startY] = touchStartPosition;
+              const [endX, endY] = [evt.clientX, evt.clientY];
+              const distance = Math.sqrt(
+                Math.pow(startX - endX, 2) + Math.pow(startY - endY, 2)
               );
-              if (feature) {
-                select.getFeatures().clear();
-                select.getFeatures().push(feature);
-                return true;
+
+              if (distance < TOUCH_DISTANCE_THRESHOLD) {
+                const feature = map.forEachFeatureAtPixel(
+                  evt.pixel,
+                  function (feature) {
+                    return feature;
+                  },
+                  {
+                    hitTolerance: 15,
+                  }
+                );
+                if (feature) {
+                  select.getFeatures().clear();
+                  select.getFeatures().push(feature);
+                  return true;
+                }
               }
             }
           }
