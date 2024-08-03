@@ -11,7 +11,6 @@
     <script src="https://cdn.jsdelivr.net/npm/ol@v8.2.0/dist/ol.js"></script>
     <link rel="icon" type="image/png" href="assets/bombina.png" />
     <link rel="stylesheet" href="styles.css" />
-    <!-- Link to the new CSS file -->
   </head>
   <body>
     <div class="basemap-switcher">
@@ -31,6 +30,10 @@
     <div id="map"></div>
     <div id="popup" class="ol-popup"></div>
     <script>
+      // Adjust pixel ratio
+      const pixelRatio = 2;
+      ol.has.DEVICE_PIXEL_RATIO = pixelRatio;
+
       const attribution = new ol.control.Attribution({
         collapsible: false,
       });
@@ -105,7 +108,31 @@
             }),
           }),
         }),
+        hitTolerance: 15, // Increase hit tolerance for easier selection
       });
+
+      // Add a custom touch interaction
+      const touchInteraction = new ol.interaction.Pointer({
+        handleDownEvent: function (evt) {
+          const feature = map.forEachFeatureAtPixel(
+            evt.pixel,
+            function (feature) {
+              return feature;
+            },
+            {
+              hitTolerance: 20,
+            }
+          );
+          if (feature) {
+            select.getFeatures().clear();
+            select.getFeatures().push(feature);
+            return true;
+          }
+          return false;
+        },
+      });
+
+      map.addInteraction(touchInteraction);
       map.addInteraction(select);
 
       const selectedFeatures = select.getFeatures();
