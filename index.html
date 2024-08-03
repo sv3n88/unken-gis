@@ -108,7 +108,7 @@
             }),
           }),
         }),
-        hitTolerance: 15, // Increase hit tolerance for easier selection
+        hitTolerance: 5, // Increase hit tolerance for easier selection
       });
 
       // Add a custom touch interaction
@@ -120,7 +120,7 @@
               return feature;
             },
             {
-              hitTolerance: 20,
+              hitTolerance: 15,
             }
           );
           if (feature) {
