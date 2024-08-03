@@ -30,7 +30,6 @@
     <div id="map"></div>
     <div id="popup" class="ol-popup"></div>
     <script>
-      // Adjust pixel ratio
       const pixelRatio = 2;
       ol.has.DEVICE_PIXEL_RATIO = pixelRatio;
 
@@ -38,12 +37,10 @@
         collapsible: false,
       });
 
-      // Create OpenStreetMap layer
       const osmLayer = new ol.layer.Tile({
         source: new ol.source.OSM(),
       });
 
-      // Create Google Satellite layer
       const googleLayer = new ol.layer.Tile({
         source: new ol.source.XYZ({
           url: "https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
@@ -52,7 +49,6 @@
         }),
       });
 
-      // Initialize map with Google Satellite layer
       const map = new ol.Map({
         layers: [googleLayer],
         controls: ol.control.defaults
@@ -60,28 +56,19 @@
           .extend([attribution]),
         target: "map",
         view: new ol.View({
-          center: ol.proj.fromLonLat([11.145, 48.765]), // Adjust center to your dataset
-          zoom: 11, // Adjust zoom level to fit your dataset
+          center: ol.proj.fromLonLat([11.145, 48.765]),
+          zoom: 11,
         }),
       });
 
-      // Function to return different styles based on huepferlinge value
       function styleFunction(feature) {
         const huepferlinge = feature.get("huepferlinge");
-        let fillColor = "green";
-        if (huepferlinge === 0) {
-          fillColor = "orange"; // Change color for huepferlinge = 0
-        }
+        let fillColor = huepferlinge === 0 ? "orange" : "green";
         return new ol.style.Style({
           image: new ol.style.Circle({
-            radius: 12.5, // Increased size by 25%
-            fill: new ol.style.Fill({
-              color: fillColor, // Conditional fill color
-            }),
-            stroke: new ol.style.Stroke({
-              color: "red", // Red outline
-              width: 3, // Thick outline
-            }),
+            radius: 12.5,
+            fill: new ol.style.Fill({ color: fillColor }),
+            stroke: new ol.style.Stroke({ color: "red", width: 3 }),
           }),
         });
       }
@@ -98,46 +85,58 @@
       const select = new ol.interaction.Select({
         style: new ol.style.Style({
           image: new ol.style.Circle({
-            radius: 12.5, // Increased size by 25%
-            fill: new ol.style.Fill({
-              color: "yellow", // Yellow fill
-            }),
-            stroke: new ol.style.Stroke({
-              color: "red", // Red outline
-              width: 3, // Thick outline
-            }),
+            radius: 12.5,
+            fill: new ol.style.Fill({ color: "yellow" }),
+            stroke: new ol.style.Stroke({ color: "red", width: 3 }),
           }),
         }),
-        hitTolerance: 5, // Adjust this value as needed
+        hitTolerance: 5,
       });
 
-      let touchPoints = 0;
+      let touchStartTime;
+      let touchStartPosition;
+      const TOUCH_DELAY = 200; // milliseconds
+      const TOUCH_DISTANCE_THRESHOLD = 5; // pixels
 
       map.getViewport().addEventListener("touchstart", function (e) {
-        touchPoints = e.touches.length;
+        if (e.touches.length === 1) {
+          touchStartTime = new Date().getTime();
+          touchStartPosition = [e.touches[0].clientX, e.touches[0].clientY];
+        }
       });
 
-      map.getViewport().addEventListener("touchend", function () {
-        touchPoints = 0;
+      map.getViewport().addEventListener("touchend", function (e) {
+        touchStartTime = null;
+        touchStartPosition = null;
       });
 
-      // Add a custom touch interaction
       const touchInteraction = new ol.interaction.Pointer({
         handleDownEvent: function (evt) {
-          if (touchPoints === 1) {
-            const feature = map.forEachFeatureAtPixel(
-              evt.pixel,
-              function (feature) {
-                return feature;
-              },
-              {
-                hitTolerance: 15, // Adjust this value as needed
-              }
+          if (
+            touchStartTime &&
+            new Date().getTime() - touchStartTime > TOUCH_DELAY
+          ) {
+            const [startX, startY] = touchStartPosition;
+            const [endX, endY] = [evt.clientX, evt.clientY];
+            const distance = Math.sqrt(
+              Math.pow(startX - endX, 2) + Math.pow(startY - endY, 2)
             );
-            if (feature) {
-              select.getFeatures().clear();
-              select.getFeatures().push(feature);
-              return true;
+
+            if (distance < TOUCH_DISTANCE_THRESHOLD) {
+              const feature = map.forEachFeatureAtPixel(
+                evt.pixel,
+                function (feature) {
+                  return feature;
+                },
+                {
+                  hitTolerance: 15,
+                }
+              );
+              if (feature) {
+                select.getFeatures().clear();
+                select.getFeatures().push(feature);
+                return true;
+              }
             }
           }
           return false;
