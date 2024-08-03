@@ -108,25 +108,37 @@
             }),
           }),
         }),
-        hitTolerance: 5, // Increase hit tolerance for easier selection
+        hitTolerance: 5, // Adjust this value as needed
+      });
+
+      let touchPoints = 0;
+
+      map.getViewport().addEventListener("touchstart", function (e) {
+        touchPoints = e.touches.length;
+      });
+
+      map.getViewport().addEventListener("touchend", function () {
+        touchPoints = 0;
       });
 
       // Add a custom touch interaction
       const touchInteraction = new ol.interaction.Pointer({
         handleDownEvent: function (evt) {
-          const feature = map.forEachFeatureAtPixel(
-            evt.pixel,
-            function (feature) {
-              return feature;
-            },
-            {
-              hitTolerance: 15,
+          if (touchPoints === 1) {
+            const feature = map.forEachFeatureAtPixel(
+              evt.pixel,
+              function (feature) {
+                return feature;
+              },
+              {
+                hitTolerance: 15, // Adjust this value as needed
+              }
+            );
+            if (feature) {
+              select.getFeatures().clear();
+              select.getFeatures().push(feature);
+              return true;
             }
-          );
-          if (feature) {
-            select.getFeatures().clear();
-            select.getFeatures().push(feature);
-            return true;
           }
           return false;
         },
