@@ -73,14 +73,14 @@
         });
       }
 
-      const ToadLayer = new ol.layer.Vector({
+      const toadLayer = new ol.layer.Vector({
         source: new ol.source.Vector({
           url: "data/biotope.json",
           format: new ol.format.GeoJSON(),
         }),
         style: styleFunction,
       });
-      map.addLayer(ToadLayer);
+      map.addLayer(toadLayer);
 
       const select = new ol.interaction.Select({
         style: new ol.style.Style({
@@ -124,13 +124,11 @@
       });
 
       document.getElementById("osm").addEventListener("click", function () {
-        map.getLayers().removeAt(0);
-        map.getLayers().insertAt(0, osmLayer);
+        map.getLayers().setAt(0, osmLayer);
       });
 
       document.getElementById("google").addEventListener("click", function () {
-        map.getLayers().removeAt(0);
-        map.getLayers().insertAt(0, googleLayer);
+        map.getLayers().setAt(0, googleLayer);
       });
 
       // Simplified click and touch handling for faster response
