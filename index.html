@@ -93,59 +93,6 @@
         hitTolerance: 5,
       });
 
-      let touchStartTime;
-      let touchStartPosition;
-      const TOUCH_DELAY = 100; // milliseconds
-      const TOUCH_DISTANCE_THRESHOLD = 5; // pixels
-
-      map.getViewport().addEventListener("touchstart", function (e) {
-        if (e.touches.length === 1) {
-          touchStartTime = new Date().getTime();
-          touchStartPosition = [e.touches[0].clientX, e.touches[0].clientY];
-        }
-      });
-
-      map.getViewport().addEventListener("touchend", function (e) {
-        touchStartTime = null;
-        touchStartPosition = null;
-      });
-
-      const touchInteraction = new ol.interaction.Pointer({
-        handleDownEvent: function (evt) {
-          if (touchStartTime) {
-            const currentTime = new Date().getTime();
-            const touchDuration = currentTime - touchStartTime;
-
-            if (touchDuration > TOUCH_DELAY) {
-              const [startX, startY] = touchStartPosition;
-              const [endX, endY] = [evt.clientX, evt.clientY];
-              const distance = Math.sqrt(
-                Math.pow(startX - endX, 2) + Math.pow(startY - endY, 2)
-              );
-
-              if (distance < TOUCH_DISTANCE_THRESHOLD) {
-                const feature = map.forEachFeatureAtPixel(
-                  evt.pixel,
-                  function (feature) {
-                    return feature;
-                  },
-                  {
-                    hitTolerance: 15,
-                  }
-                );
-                if (feature) {
-                  select.getFeatures().clear();
-                  select.getFeatures().push(feature);
-                  return true;
-                }
-              }
-            }
-          }
-          return false;
-        },
-      });
-
-      map.addInteraction(touchInteraction);
       map.addInteraction(select);
 
       const selectedFeatures = select.getFeatures();
@@ -165,9 +112,9 @@
         popup.innerHTML = `<span class="bold">Anzahl Hüpferlinge:</span> ${
           properties.huepferlinge || "-"
         }<br>
-    <span class="bold">Datum:</span> ${properties.datum || "-"}<br>
-    <span class="bold">Bemerkung:</span> ${properties.bemerkung || "-"}<br>
-    <span class="bold">Region:</span> ${properties.region || "-"}<br>`;
+        <span class="bold">Datum:</span> ${properties.datum || "-"}<br>
+        <span class="bold">Bemerkung:</span> ${properties.bemerkung || "-"}<br>
+        <span class="bold">Region:</span> ${properties.region || "-"}<br>`;
         overlay.setPosition(coordinates);
       });
 
@@ -184,6 +131,20 @@
       document.getElementById("google").addEventListener("click", function () {
         map.getLayers().removeAt(0);
         map.getLayers().insertAt(0, googleLayer);
+      });
+
+      // Simplified click and touch handling for faster response
+      map.on("singleclick", function (evt) {
+        const feature = map.forEachFeatureAtPixel(
+          evt.pixel,
+          function (feature) {
+            return feature;
+          }
+        );
+        if (feature) {
+          select.getFeatures().clear();
+          select.getFeatures().push(feature);
+        }
       });
     </script>
   </body>
