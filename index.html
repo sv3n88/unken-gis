@@ -82,6 +82,9 @@
       });
       map.addLayer(toadLayer);
 
+      // Detect if the user is on a mobile device
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
       const select = new ol.interaction.Select({
         style: new ol.style.Style({
           image: new ol.style.Circle({
@@ -90,7 +93,7 @@
             stroke: new ol.style.Stroke({ color: "red", width: 3 }),
           }),
         }),
-        hitTolerance: 5,
+        hitTolerance: isMobile ? 15 : 5, // Increase hit tolerance for mobile devices
       });
 
       map.addInteraction(select);
@@ -137,6 +140,9 @@
           evt.pixel,
           function (feature) {
             return feature;
+          },
+          {
+            hitTolerance: isMobile ? 15 : 5, // Increase hit tolerance for mobile devices
           }
         );
         if (feature) {
