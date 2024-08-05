@@ -93,7 +93,7 @@
             stroke: new ol.style.Stroke({ color: "red", width: 3 }),
           }),
         }),
-        hitTolerance: isMobile ? 15 : 1, // Increase hit tolerance for mobile devices
+        hitTolerance: isMobile ? 15 : 1, // Increase hit tolerance for mobile devices, small tolerance for desktop
       });
 
       map.addInteraction(select);
@@ -177,6 +177,44 @@
         touchStartCoords = null;
       });
 
+      // Mouse handling with tolerance for movement
+      let mouseStartCoords = null;
+
+      map.getViewport().addEventListener("mousedown", function (evt) {
+        mouseStartCoords = [evt.clientX, evt.clientY];
+      });
+
+      map.getViewport().addEventListener("mouseup", function (evt) {
+        if (mouseStartCoords) {
+          const [startX, startY] = mouseStartCoords;
+          const [endX, endY] = [evt.clientX, evt.clientY];
+          const deltaX = endX - startX;
+          const deltaY = endY - startY;
+          const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+
+          // Define a threshold distance for considering it a click instead of a drag
+          const mouseThreshold = 5; // in pixels
+
+          if (distance < mouseThreshold) {
+            const pixel = map.getEventPixel(evt);
+            const feature = map.forEachFeatureAtPixel(
+              pixel,
+              function (feature) {
+                return feature;
+              },
+              {
+                hitTolerance: 5, // Small tolerance for desktop devices
+              }
+            );
+            if (feature) {
+              select.getFeatures().clear();
+              select.getFeatures().push(feature);
+            }
+          }
+        }
+        mouseStartCoords = null;
+      });
+
       // Simplified click handling for faster response
       map.on("singleclick", function (evt) {
         const feature = map.forEachFeatureAtPixel(
@@ -185,7 +223,7 @@
             return feature;
           },
           {
-            hitTolerance: isMobile ? 15 : 1, // Increase hit tolerance for mobile devices
+            hitTolerance: isMobile ? 15 : 1, // Increase hit tolerance for mobile devices, small tolerance for desktop
           }
         );
         if (feature) {
