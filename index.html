@@ -120,6 +120,7 @@
       });
 
       popup.addEventListener("click", function (e) {
+        e.stopPropagation();
         if (e.target.classList.contains("nav-button")) {
           if (e.target.dataset.direction === "prev") {
             showPreviousFeature();
@@ -159,6 +160,19 @@
         updatePopup();
       }
 
+      function showPreviousFeature() {
+        currentFeatureIndex =
+          (currentFeatureIndex - 1 + featuresAtLocation.length) %
+          featuresAtLocation.length;
+        updatePopup();
+      }
+
+      function showNextFeature() {
+        currentFeatureIndex =
+          (currentFeatureIndex + 1) % featuresAtLocation.length;
+        updatePopup();
+      }
+
       function updatePopup() {
         if (featuresAtLocation.length === 0) return;
 
@@ -190,19 +204,20 @@
 
         popup.innerHTML = content;
         overlay.setPosition(coordinates);
-      }
 
-      function showPreviousFeature() {
-        currentFeatureIndex =
-          (currentFeatureIndex - 1 + featuresAtLocation.length) %
-          featuresAtLocation.length;
-        updatePopup();
-      }
-
-      function showNextFeature() {
-        currentFeatureIndex =
-          (currentFeatureIndex + 1) % featuresAtLocation.length;
-        updatePopup();
+        // Add touch event listeners to the new buttons
+        const buttons = popup.querySelectorAll(".nav-button");
+        buttons.forEach((button) => {
+          button.addEventListener("touchend", function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (this.dataset.direction === "prev") {
+              showPreviousFeature();
+            } else if (this.dataset.direction === "next") {
+              showNextFeature();
+            }
+          });
+        });
       }
 
       function clearPopup() {
