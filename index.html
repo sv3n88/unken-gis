@@ -4,10 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Unkenprojekt</title>
-    <link
-      rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/ol@v8.2.0/ol.css"
-    />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v8.2.0/ol.css" />
     <script src="https://cdn.jsdelivr.net/npm/ol@v8.2.0/dist/ol.js"></script>
     <link rel="icon" type="image/png" href="assets/bombina.png" />
     <link rel="stylesheet" href="styles.css" />
@@ -15,16 +12,10 @@
   <body>
     <div class="basemap-switcher">
       <div id="osm">
-        <div
-          class="icon"
-          style="background-image: url('assets/osm_icon.png')"
-        ></div>
+        <div class="icon" style="background-image: url('assets/osm_icon.png')"></div>
       </div>
       <div id="google">
-        <div
-          class="icon"
-          style="background-image: url('assets/google_icon.png')"
-        ></div>
+        <div class="icon" style="background-image: url('assets/google_icon.png')"></div>
       </div>
     </div>
     <div id="map"></div>
@@ -44,16 +35,13 @@
       const googleLayer = new ol.layer.Tile({
         source: new ol.source.XYZ({
           url: "https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
-          attributions:
-            'Map data © <a href="https://www.google.com/maps">Google</a>',
+          attributions: 'Map data © <a href="https://www.google.com/maps">Google</a>',
         }),
       });
 
       const map = new ol.Map({
         layers: [googleLayer],
-        controls: ol.control.defaults
-          .defaults({ attribution: false })
-          .extend([attribution]),
+        controls: ol.control.defaults.defaults({ attribution: false }).extend([attribution]),
         target: "map",
         view: new ol.View({
           center: ol.proj.fromLonLat([11.145, 48.765]),
@@ -75,14 +63,13 @@
 
       const toadLayer = new ol.layer.Vector({
         source: new ol.source.Vector({
-          url: "data/biotope.json",
+          url: "data/biotope_test.json",
           format: new ol.format.GeoJSON(),
         }),
         style: styleFunction,
       });
       map.addLayer(toadLayer);
 
-      // Detect if the user is on a mobile device
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
       const select = new ol.interaction.Select({
@@ -93,7 +80,7 @@
             stroke: new ol.style.Stroke({ color: "red", width: 3 }),
           }),
         }),
-        hitTolerance: isMobile ? 15 : 1, // Increase hit tolerance for mobile devices, small tolerance for desktop
+        hitTolerance: isMobile ? 15 : 1,
       });
 
       map.addInteraction(select);
@@ -104,26 +91,109 @@
         element: popup,
         positioning: "bottom-center",
         stopEvent: false,
-        offset: [0, -10],
+        offset: [0, -15],  // Adjust the offset here
       });
       map.addOverlay(overlay);
 
-      selectedFeatures.on("add", function (event) {
-        const feature = event.target.item(0);
-        const properties = feature.getProperties();
-        const coordinates = feature.getGeometry().getCoordinates();
-        popup.innerHTML = `<span class="bold">Anzahl Hüpferlinge:</span> ${
-          properties.huepferlinge || "-"
-        }<br>
-        <span class="bold">Datum:</span> ${properties.datum || "-"}<br>
-        <span class="bold">Bemerkung:</span> ${properties.bemerkung || "-"}<br>
-        <span class="bold">Region:</span> ${properties.region || "-"}<br>`;
-        overlay.setPosition(coordinates);
+      let pointerDownInsidePopup = false;
+
+      popup.addEventListener('pointerdown', function(e) {
+        e.stopPropagation();
+        pointerDownInsidePopup = true;
       });
 
-      selectedFeatures.on("remove", function (event) {
+      popup.addEventListener('pointerup', function(e) {
+        e.stopPropagation();
+        pointerDownInsidePopup = false;
+      });
+
+      popup.addEventListener('click', function(e) {
+        if (e.target.classList.contains('nav-button')) {
+          if (e.target.dataset.direction === 'prev') {
+            showPreviousFeature();
+          } else if (e.target.dataset.direction === 'next') {
+            showNextFeature();
+          }
+        }
+      });
+
+      const propertyAliases = {
+        huepferlinge: "Anzahl Hüpferlinge",
+        datum: "Datum",
+        bemerkung: "Bemerkung",
+        region: "Region"
+        // Add more mappings as needed
+      };
+
+      let featuresAtLocation = [];
+      let currentFeatureIndex = 0;
+
+      function updateFeaturesAtLocation(clickedFeature) {
+        const clickedCoordinate = clickedFeature.getGeometry().getCoordinates();
+        featuresAtLocation = [];
+        
+        map.getLayers().getArray().forEach(function(layer) {
+          if (layer instanceof ol.layer.Vector) {
+            const source = layer.getSource();
+            const featuresAtCoord = source.getFeaturesAtCoordinate(clickedCoordinate);
+            featuresAtLocation = featuresAtLocation.concat(featuresAtCoord);
+          }
+        });
+        
+        currentFeatureIndex = 0;
+        updatePopup();
+      }
+
+      selectedFeatures.on("add", function (event) {
+        updateFeaturesAtLocation(event.target.item(0));
+      });
+
+      function updatePopup() {
+        if (featuresAtLocation.length === 0) return;
+
+        const feature = featuresAtLocation[currentFeatureIndex];
+        const properties = feature.getProperties();
+        const coordinates = feature.getGeometry().getCoordinates();
+
+        let content = '<div class="popup-content">';
+        for (const key in properties) {
+          if (properties.hasOwnProperty(key) && key !== 'geometry') {
+            const alias = propertyAliases[key] || key.charAt(0).toUpperCase() + key.slice(1);
+            content += `<span class="bold">${alias}:</span> ${properties[key] || "-"}<br>`;
+          }
+        }
+        content += '</div>';
+
+        if (featuresAtLocation.length > 1) {
+          content += `
+            <div class="popup-navigation">
+              <button class="nav-button" data-direction="prev">&lt;</button>
+              <span>${currentFeatureIndex + 1} of ${featuresAtLocation.length}</span>
+              <button class="nav-button" data-direction="next">&gt;</button>
+            </div>`;
+        }
+
+        popup.innerHTML = content;
+        overlay.setPosition(coordinates);
+      }
+
+      function showPreviousFeature() {
+        currentFeatureIndex = (currentFeatureIndex - 1 + featuresAtLocation.length) % featuresAtLocation.length;
+        updatePopup();
+      }
+
+      function showNextFeature() {
+        currentFeatureIndex = (currentFeatureIndex + 1) % featuresAtLocation.length;
+        updatePopup();
+      }
+
+      function clearPopup() {
         popup.innerHTML = "";
         overlay.setPosition(undefined);
+      }
+
+      selectedFeatures.on("remove", function (event) {
+        clearPopup();
       });
 
       document.getElementById("osm").addEventListener("click", function () {
@@ -134,7 +204,6 @@
         map.getLayers().setAt(0, googleLayer);
       });
 
-      // Touch handling with tolerance for movement
       let touchStartCoords = null;
 
       map.getViewport().addEventListener("touchstart", function (evt) {
@@ -145,91 +214,17 @@
 
       map.getViewport().addEventListener("touchend", function (evt) {
         if (touchStartCoords && evt.changedTouches.length === 1) {
-          const [startX, startY] = touchStartCoords;
-          const [endX, endY] = [
-            evt.changedTouches[0].clientX,
-            evt.changedTouches[0].clientY,
-          ];
-          const deltaX = endX - startX;
-          const deltaY = endY - startY;
-          const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-
-          // Define a threshold distance for considering it a tap instead of a drag
-          const touchThreshold = 10; // in pixels
-
-          if (distance < touchThreshold) {
-            const pixel = map.getEventPixel(evt.changedTouches[0]);
-            const feature = map.forEachFeatureAtPixel(
-              pixel,
-              function (feature) {
-                return feature;
-              },
-              {
-                hitTolerance: isMobile ? 15 : 1, // Increase hit tolerance for mobile devices
-              }
-            );
-            if (feature) {
-              select.getFeatures().clear();
-              select.getFeatures().push(feature);
-            }
+          const touchEndCoords = [evt.changedTouches[0].clientX, evt.changedTouches[0].clientY];
+          const deltaX = Math.abs(touchEndCoords[0] - touchStartCoords[0]);
+          const deltaY = Math.abs(touchEndCoords[1] - touchStartCoords[1]);
+          if (deltaX < 10 && deltaY < 10) {
+            map.forEachFeatureAtPixel(map.getEventPixel(evt), function (feature) {
+              selectedFeatures.push(feature);
+              return true;
+            });
           }
         }
         touchStartCoords = null;
-      });
-
-      // Mouse handling with tolerance for movement
-      let mouseStartCoords = null;
-
-      map.getViewport().addEventListener("mousedown", function (evt) {
-        mouseStartCoords = [evt.clientX, evt.clientY];
-      });
-
-      map.getViewport().addEventListener("mouseup", function (evt) {
-        if (mouseStartCoords) {
-          const [startX, startY] = mouseStartCoords;
-          const [endX, endY] = [evt.clientX, evt.clientY];
-          const deltaX = endX - startX;
-          const deltaY = endY - startY;
-          const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-
-          // Define a threshold distance for considering it a click instead of a drag
-          const mouseThreshold = 5; // in pixels
-
-          if (distance < mouseThreshold) {
-            const pixel = map.getEventPixel(evt);
-            const feature = map.forEachFeatureAtPixel(
-              pixel,
-              function (feature) {
-                return feature;
-              },
-              {
-                hitTolerance: 5, // Small tolerance for desktop devices
-              }
-            );
-            if (feature) {
-              select.getFeatures().clear();
-              select.getFeatures().push(feature);
-            }
-          }
-        }
-        mouseStartCoords = null;
-      });
-
-      // Simplified click handling for faster response
-      map.on("singleclick", function (evt) {
-        const feature = map.forEachFeatureAtPixel(
-          evt.pixel,
-          function (feature) {
-            return feature;
-          },
-          {
-            hitTolerance: isMobile ? 15 : 1, // Increase hit tolerance for mobile devices, small tolerance for desktop
-          }
-        );
-        if (feature) {
-          select.getFeatures().clear();
-          select.getFeatures().push(feature);
-        }
       });
     </script>
   </body>
