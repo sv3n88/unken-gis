@@ -230,6 +230,10 @@
             }
           });
         });
+
+        // Debugging: Log coordinates and properties to console
+        console.log("Feature coordinates:", coordinates);
+        console.log("Feature properties:", properties);
       }
 
       function clearPopup() {
@@ -263,7 +267,8 @@
           evt.pixel,
           function (feature) {
             return feature;
-          }
+          },
+          { hitTolerance: isMobile ? 15 : 1 }
         );
 
         if (feature) {
@@ -281,42 +286,6 @@
 
       document.getElementById("google").addEventListener("click", function () {
         map.getLayers().setAt(0, googleLayer);
-      });
-
-      let touchStartCoords = null;
-
-      map.getViewport().addEventListener("touchstart", function (evt) {
-        if (evt.touches.length === 1) {
-          touchStartCoords = [evt.touches[0].clientX, evt.touches[0].clientY];
-        }
-      });
-
-      map.getViewport().addEventListener("touchend", function (evt) {
-        if (touchStartCoords && evt.changedTouches.length === 1) {
-          const touchEndCoords = [
-            evt.changedTouches[0].clientX,
-            evt.changedTouches[0].clientY,
-          ];
-          const deltaX = Math.abs(touchEndCoords[0] - touchStartCoords[0]);
-          const deltaY = Math.abs(touchEndCoords[1] - touchStartCoords[1]);
-          if (deltaX < 10 && deltaY < 10) {
-            const pixel = map.getEventPixel(evt);
-            const feature = map.forEachFeatureAtPixel(
-              pixel,
-              function (feature) {
-                return feature;
-              }
-            );
-            if (feature) {
-              selectedFeatures.clear();
-              selectedFeatures.push(feature);
-              updateFeaturesAtLocation(feature);
-            } else {
-              clearPopup();
-            }
-          }
-        }
-        touchStartCoords = null;
       });
     </script>
   </body>
