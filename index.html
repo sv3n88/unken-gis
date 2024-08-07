@@ -223,7 +223,28 @@
       function clearPopup() {
         popup.innerHTML = "";
         overlay.setPosition(undefined);
+        selectedFeatures.clear();
       }
+
+      function isPopupVisible() {
+        const mapSize = map.getSize();
+        const popupPosition = overlay.getPosition();
+        if (!popupPosition) return false;
+
+        const pixel = map.getPixelFromCoordinate(popupPosition);
+        return (
+          pixel[0] >= 0 &&
+          pixel[0] < mapSize[0] &&
+          pixel[1] >= 0 &&
+          pixel[1] < mapSize[1]
+        );
+      }
+
+      map.on("moveend", function () {
+        if (!isPopupVisible()) {
+          clearPopup();
+        }
+      });
 
       map.on("click", function (evt) {
         const feature = map.forEachFeatureAtPixel(
@@ -238,7 +259,6 @@
           selectedFeatures.push(feature);
           updateFeaturesAtLocation(feature);
         } else {
-          selectedFeatures.clear();
           clearPopup();
         }
       });
@@ -280,7 +300,6 @@
               selectedFeatures.push(feature);
               updateFeaturesAtLocation(feature);
             } else {
-              selectedFeatures.clear();
               clearPopup();
             }
           }
