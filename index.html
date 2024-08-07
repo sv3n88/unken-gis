@@ -158,8 +158,10 @@
         let content = '<div class="popup-content">';
         for (const key in properties) {
           if (properties.hasOwnProperty(key) && key !== 'geometry') {
-            const alias = propertyAliases[key] || key.charAt(0).toUpperCase() + key.slice(1);
-            content += `<span class="bold">${alias}:</span> ${properties[key] || "-"}<br>`;
+            const alias = propertyAliases[key];
+            if (alias) {
+              content += `<span class="bold">${alias}:</span> ${properties[key] || "-"}<br>`;
+            }
           }
         }
         content += '</div>';
