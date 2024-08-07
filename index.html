@@ -119,6 +119,18 @@
         pointerDownInsidePopup = false;
       });
 
+      popup.addEventListener("touchstart", function (e) {
+        e.stopPropagation();
+      });
+
+      popup.addEventListener("touchmove", function (e) {
+        e.stopPropagation();
+      });
+
+      popup.addEventListener("touchend", function (e) {
+        e.stopPropagation();
+      });
+
       popup.addEventListener("click", function (e) {
         e.stopPropagation();
         if (e.target.classList.contains("nav-button")) {
