@@ -4,7 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Unkenprojekt</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v8.2.0/ol.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/ol@v8.2.0/ol.css"
+    />
     <script src="https://cdn.jsdelivr.net/npm/ol@v8.2.0/dist/ol.js"></script>
     <link rel="icon" type="image/png" href="assets/bombina.png" />
     <link rel="stylesheet" href="styles.css" />
@@ -12,10 +15,16 @@
   <body>
     <div class="basemap-switcher">
       <div id="osm">
-        <div class="icon" style="background-image: url('assets/osm_icon.png')"></div>
+        <div
+          class="icon"
+          style="background-image: url('assets/osm_icon.png')"
+        ></div>
       </div>
       <div id="google">
-        <div class="icon" style="background-image: url('assets/google_icon.png')"></div>
+        <div
+          class="icon"
+          style="background-image: url('assets/google_icon.png')"
+        ></div>
       </div>
     </div>
     <div id="map"></div>
@@ -35,13 +44,16 @@
       const googleLayer = new ol.layer.Tile({
         source: new ol.source.XYZ({
           url: "https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
-          attributions: 'Map data © <a href="https://www.google.com/maps">Google</a>',
+          attributions:
+            'Map data © <a href="https://www.google.com/maps">Google</a>',
         }),
       });
 
       const map = new ol.Map({
         layers: [googleLayer],
-        controls: ol.control.defaults.defaults({ attribution: false }).extend([attribution]),
+        controls: ol.control.defaults
+          .defaults({ attribution: false })
+          .extend([attribution]),
         target: "map",
         view: new ol.View({
           center: ol.proj.fromLonLat([11.145, 48.765]),
@@ -63,7 +75,7 @@
 
       const toadLayer = new ol.layer.Vector({
         source: new ol.source.Vector({
-          url: "data/biotope.json",
+          url: "data/biotope_test.json",
           format: new ol.format.GeoJSON(),
         }),
         style: styleFunction,
@@ -91,27 +103,27 @@
         element: popup,
         positioning: "bottom-center",
         stopEvent: false,
-        offset: [0, -15],  // Adjust the offset here
+        offset: [0, -15],
       });
       map.addOverlay(overlay);
 
       let pointerDownInsidePopup = false;
 
-      popup.addEventListener('pointerdown', function(e) {
+      popup.addEventListener("pointerdown", function (e) {
         e.stopPropagation();
         pointerDownInsidePopup = true;
       });
 
-      popup.addEventListener('pointerup', function(e) {
+      popup.addEventListener("pointerup", function (e) {
         e.stopPropagation();
         pointerDownInsidePopup = false;
       });
 
-      popup.addEventListener('click', function(e) {
-        if (e.target.classList.contains('nav-button')) {
-          if (e.target.dataset.direction === 'prev') {
+      popup.addEventListener("click", function (e) {
+        if (e.target.classList.contains("nav-button")) {
+          if (e.target.dataset.direction === "prev") {
             showPreviousFeature();
-          } else if (e.target.dataset.direction === 'next') {
+          } else if (e.target.dataset.direction === "next") {
             showNextFeature();
           }
         }
@@ -121,8 +133,7 @@
         huepferlinge: "Anzahl Hüpferlinge",
         datum: "Datum",
         bemerkung: "Bemerkung",
-        region: "Region"
-        // Add more mappings as needed
+        region: "Region",
       };
 
       let featuresAtLocation = [];
@@ -131,22 +142,22 @@
       function updateFeaturesAtLocation(clickedFeature) {
         const clickedCoordinate = clickedFeature.getGeometry().getCoordinates();
         featuresAtLocation = [];
-        
-        map.getLayers().getArray().forEach(function(layer) {
-          if (layer instanceof ol.layer.Vector) {
-            const source = layer.getSource();
-            const featuresAtCoord = source.getFeaturesAtCoordinate(clickedCoordinate);
-            featuresAtLocation = featuresAtLocation.concat(featuresAtCoord);
-          }
-        });
-        
+
+        map
+          .getLayers()
+          .getArray()
+          .forEach(function (layer) {
+            if (layer instanceof ol.layer.Vector) {
+              const source = layer.getSource();
+              const featuresAtCoord =
+                source.getFeaturesAtCoordinate(clickedCoordinate);
+              featuresAtLocation = featuresAtLocation.concat(featuresAtCoord);
+            }
+          });
+
         currentFeatureIndex = 0;
         updatePopup();
       }
-
-      selectedFeatures.on("add", function (event) {
-        updateFeaturesAtLocation(event.target.item(0));
-      });
 
       function updatePopup() {
         if (featuresAtLocation.length === 0) return;
@@ -157,18 +168,22 @@
 
         let content = '<div class="popup-content">';
         for (const key in properties) {
-          if (properties.hasOwnProperty(key) && key !== 'geometry') {
-            const alias = propertyAliases[key] || key; // Use alias if it exists, otherwise use the original key
-            content += `<span class="bold">${alias}:</span> ${properties[key] || "-"}<br>`;
+          if (properties.hasOwnProperty(key) && key !== "geometry") {
+            const alias = propertyAliases[key] || key;
+            content += `<span class="bold">${alias}:</span> ${
+              properties[key] || "-"
+            }<br>`;
           }
         }
-        content += '</div>';
+        content += "</div>";
 
         if (featuresAtLocation.length > 1) {
           content += `
             <div class="popup-navigation">
               <button class="nav-button" data-direction="prev">&lt;</button>
-              <span>${currentFeatureIndex + 1} of ${featuresAtLocation.length}</span>
+              <span>${currentFeatureIndex + 1} of ${
+            featuresAtLocation.length
+          }</span>
               <button class="nav-button" data-direction="next">&gt;</button>
             </div>`;
         }
@@ -178,12 +193,15 @@
       }
 
       function showPreviousFeature() {
-        currentFeatureIndex = (currentFeatureIndex - 1 + featuresAtLocation.length) % featuresAtLocation.length;
+        currentFeatureIndex =
+          (currentFeatureIndex - 1 + featuresAtLocation.length) %
+          featuresAtLocation.length;
         updatePopup();
       }
 
       function showNextFeature() {
-        currentFeatureIndex = (currentFeatureIndex + 1) % featuresAtLocation.length;
+        currentFeatureIndex =
+          (currentFeatureIndex + 1) % featuresAtLocation.length;
         updatePopup();
       }
 
@@ -192,8 +210,22 @@
         overlay.setPosition(undefined);
       }
 
-      selectedFeatures.on("remove", function (event) {
-        clearPopup();
+      map.on("click", function (evt) {
+        const feature = map.forEachFeatureAtPixel(
+          evt.pixel,
+          function (feature) {
+            return feature;
+          }
+        );
+
+        if (feature) {
+          selectedFeatures.clear();
+          selectedFeatures.push(feature);
+          updateFeaturesAtLocation(feature);
+        } else {
+          selectedFeatures.clear();
+          clearPopup();
+        }
       });
 
       document.getElementById("osm").addEventListener("click", function () {
@@ -214,14 +246,28 @@
 
       map.getViewport().addEventListener("touchend", function (evt) {
         if (touchStartCoords && evt.changedTouches.length === 1) {
-          const touchEndCoords = [evt.changedTouches[0].clientX, evt.changedTouches[0].clientY];
+          const touchEndCoords = [
+            evt.changedTouches[0].clientX,
+            evt.changedTouches[0].clientY,
+          ];
           const deltaX = Math.abs(touchEndCoords[0] - touchStartCoords[0]);
           const deltaY = Math.abs(touchEndCoords[1] - touchStartCoords[1]);
           if (deltaX < 10 && deltaY < 10) {
-            map.forEachFeatureAtPixel(map.getEventPixel(evt), function (feature) {
+            const pixel = map.getEventPixel(evt);
+            const feature = map.forEachFeatureAtPixel(
+              pixel,
+              function (feature) {
+                return feature;
+              }
+            );
+            if (feature) {
+              selectedFeatures.clear();
               selectedFeatures.push(feature);
-              return true;
-            });
+              updateFeaturesAtLocation(feature);
+            } else {
+              selectedFeatures.clear();
+              clearPopup();
+            }
           }
         }
         touchStartCoords = null;
