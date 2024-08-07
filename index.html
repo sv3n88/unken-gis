@@ -63,7 +63,7 @@
 
       const toadLayer = new ol.layer.Vector({
         source: new ol.source.Vector({
-          url: "data/biotope_test.json",
+          url: "data/biotope.json",
           format: new ol.format.GeoJSON(),
         }),
         style: styleFunction,
@@ -158,10 +158,8 @@
         let content = '<div class="popup-content">';
         for (const key in properties) {
           if (properties.hasOwnProperty(key) && key !== 'geometry') {
-            const alias = propertyAliases[key];
-            if (alias) {
-              content += `<span class="bold">${alias}:</span> ${properties[key] || "-"}<br>`;
-            }
+            const alias = propertyAliases[key] || key; // Use alias if it exists, otherwise use the original key
+            content += `<span class="bold">${alias}:</span> ${properties[key] || "-"}<br>`;
           }
         }
         content += '</div>';
