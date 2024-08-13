@@ -11,6 +11,8 @@
 { "type": "Feature", "properties": { "id": 52, "name": "Blindschleiche ", "datum": "2024-08-07", "bemerkung": "Auf dem Weg", "anzahl": 1 }, "geometry": { "type": "Point", "coordinates": [ 11.127326800325864, 48.739598872507706 ] } },
 { "type": "Feature", "properties": { "id": 53, "name": "Ringelnatter", "datum": "2024-08-07", "bemerkung": "Im Wasser", "anzahl": 1 }, "geometry": { "type": "Point", "coordinates": [ 11.147012131525274, 48.753206022738354 ] } },
 { "type": "Feature", "properties": { "id": 54, "name": "Zauneidechse ", "datum": "2024-08-07", "bemerkung": "Juvenil", "anzahl": 1 }, "geometry": { "type": "Point", "coordinates": [ 11.119103926410112, 48.773807578284512 ] } },
-{ "type": "Feature", "properties": { "id": 49, "name": "Zauneidechse", "datum": "2024-08-03", "bemerkung": "Jungtier", "anzahl": 1 }, "geometry": { "type": "Point", "coordinates": [ 11.118982740091647, 48.773730304734691 ] } }
+{ "type": "Feature", "properties": { "id": 57, "name": "Springfrosch ", "datum": "2024-08-13", "bemerkung": null, "anzahl": 1 }, "geometry": { "type": "Point", "coordinates": [ 11.146233439040927, 48.773232691787747 ] } },
+{ "type": "Feature", "properties": { "id": 49, "name": "Zauneidechse", "datum": "2024-08-03", "bemerkung": "Jungtier", "anzahl": 1 }, "geometry": { "type": "Point", "coordinates": [ 11.118982740091647, 48.773730304734691 ] } },
+{ "type": "Feature", "properties": { "id": 58, "name": "Ringelnatter ", "datum": "2024-08-04", "bemerkung": "Auf dem Weg", "anzahl": 1 }, "geometry": { "type": "Point", "coordinates": [ 11.110839041403805, 48.738282370627864 ] } }
 ]
 }
