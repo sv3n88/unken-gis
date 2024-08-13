@@ -92,7 +92,7 @@
             stroke: new ol.style.Stroke({ color: "red", width: 3 }),
           }),
         }),
-        hitTolerance: isMobile ? 20 : 5,
+        hitTolerance: isMobile ? 15 : 1,
       });
 
       map.addInteraction(select);
@@ -264,7 +264,7 @@
           function (feature) {
             return feature;
           },
-          { hitTolerance: isMobile ? 20 : 5 }
+          { hitTolerance: isMobile ? 15 : 1 }
         );
 
         if (feature) {
