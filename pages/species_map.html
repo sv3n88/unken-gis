@@ -257,22 +257,46 @@
         }
       });
 
-      map.on("click", function (evt) {
-        const feature = map.forEachFeatureAtPixel(
-          evt.pixel,
-          function (feature) {
-            return feature;
-          },
-          { hitTolerance: isMobile ? 15 : 1 }
-        );
+      let startPoint = null;
+      let isClick = true;
+      const movementTolerance = isMobile ? 10 : 3; // Set tolerance for mobile and desktop
 
-        if (feature) {
-          selectedFeatures.clear();
-          selectedFeatures.push(feature);
-          updateFeaturesAtLocation(feature);
-        } else {
-          clearPopup();
+      map.on("pointerdown", function (evt) {
+        startPoint = evt.pixel;
+        isClick = true;
+      });
+
+      map.on("pointermove", function (evt) {
+        if (startPoint) {
+          const currentPoint = evt.pixel;
+          const dx = currentPoint[0] - startPoint[0];
+          const dy = currentPoint[1] - startPoint[1];
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          if (distance > movementTolerance) {
+            isClick = false;
+          }
         }
+      });
+
+      map.on("pointerup", function (evt) {
+        if (isClick) {
+          const feature = map.forEachFeatureAtPixel(
+            evt.pixel,
+            function (feature) {
+              return feature;
+            },
+            { hitTolerance: isMobile ? 15 : 1 }
+          );
+
+          if (feature) {
+            selectedFeatures.clear();
+            selectedFeatures.push(feature);
+            updateFeaturesAtLocation(feature);
+          } else {
+            clearPopup();
+          }
+        }
+        startPoint = null;
       });
 
       document.getElementById("osm").addEventListener("click", function () {
