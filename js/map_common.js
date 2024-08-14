@@ -26,6 +26,18 @@ function initMap(geojsonUrl, styleFunction) {
         zoom: 11,
       }),
     });
+
+    const homeButton = document.createElement('div');
+    homeButton.className = 'ol-control ol-unselectable home-button';
+    homeButton.innerHTML = '🏠'; // Using emoji for house icon
+    homeButton.title = 'Go to home page';
+    homeButton.addEventListener('click', function() {
+        window.location.href = '../index.html';
+    });
+
+    map.addControl(new ol.control.Control({
+        element: homeButton
+    }));
   
     const dataLayer = new ol.layer.Vector({
       source: new ol.source.Vector({

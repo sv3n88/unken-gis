@@ -11,3 +11,35 @@ function styleFunction(feature) {
   }
   
   const map = initMap("../data/biotope.json", styleFunction);
+
+  // Add Unken-counter
+const unkenCounter = document.createElement('div');
+unkenCounter.className = 'ol-control ol-unselectable unken-counter';
+unkenCounter.innerHTML = 'Loading...';
+
+map.addControl(new ol.control.Control({
+  element: unkenCounter
+}));
+
+function updateUnkenCounter() {
+  let totalHuepferlinge = 0;
+  map.getLayers().getArray().forEach(function(layer) {
+    if (layer instanceof ol.layer.Vector) {
+      layer.getSource().getFeatures().forEach(function(feature) {
+        totalHuepferlinge += feature.get('huepferlinge') || 0;
+      });
+    }
+  });
+  unkenCounter.innerHTML = `Gesamtzahl Hüpferlinge: ${totalHuepferlinge}`;
+}
+
+// Update counter when source finishes loading
+map.getLayers().getArray().forEach(function(layer) {
+  if (layer instanceof ol.layer.Vector) {
+    layer.getSource().on('change', function(e) {
+      if (this.getState() === 'ready') {
+        updateUnkenCounter();
+      }
+    });
+  }
+});
