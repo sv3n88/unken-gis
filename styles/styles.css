@@ -166,3 +166,32 @@ body {
   box-shadow: 0 3px 10px rgba(74, 144, 226, 0.4);
   transform: translateY(1px);
 }
+
+.home-button {
+  top: .5em;
+  right: .5em;
+  width: 1.5em;
+  height: 1.5em;
+  background-color: rgba(255,255,255,0.8);
+  border-radius: 4px;
+  padding: 5px;
+  cursor: pointer;
+  font-size: 2em;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.home-button:hover {
+  background-color: rgba(255,255,255,1);
+}
+
+.unken-counter {
+  bottom: 1em;
+  right: .5em;
+  background-color: rgba(255,255,255,0.8);
+  border-radius: 4px;
+  padding: 10px;
+  font-weight: bold;
+  font-size: 1.2em;
+}
