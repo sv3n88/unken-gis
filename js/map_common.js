@@ -101,6 +101,8 @@ function initMap(geojsonUrl, styleFunction) {
       datum: "Datum",
       bemerkung: "Bemerkung",
       region: "Region",
+      name: "Name",
+      anzahl: "Anzahl"
     };
   
     let featuresAtLocation = [];
