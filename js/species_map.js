@@ -1,4 +1,4 @@
-function styleFunction(feature) {
+function styleFunction() {
     let fillColor = "purple";
     return new ol.style.Style({
       image: new ol.style.Circle({
