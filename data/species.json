@@ -2,5 +2,9 @@
 "type": "FeatureCollection",
 "name": "species",
 "crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
-"features": []
+"features": [
+{ "type": "Feature", "properties": { "id": 1, "name": "Zauneidechse ", "datum": "2025-04-19", "anzahl": null, "bemerkung": null }, "geometry": { "type": "Point", "coordinates": [ 11.075759226972769, 48.737105794952278 ] } },
+{ "type": "Feature", "properties": { "id": 2, "name": "Ringelnatter", "datum": "2025-05-01", "anzahl": 2, "bemerkung": "2 Jungtiere" }, "geometry": { "type": "Point", "coordinates": [ 11.145028254788491, 48.755453537112558 ] } },
+{ "type": "Feature", "properties": { "id": 3, "name": "Schlingnatter", "datum": "2025-05-06", "anzahl": null, "bemerkung": null }, "geometry": { "type": "Point", "coordinates": [ 11.129629107652244, 48.738461133427805 ] } }
+]
 }
