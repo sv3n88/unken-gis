@@ -1,4 +1,4 @@
-function initMap(geojsonUrl, styleFunction) {
+function initMap(collectionName, styleFunction) {
     const pixelRatio = 2;
     ol.has.DEVICE_PIXEL_RATIO = pixelRatio;
   
@@ -29,7 +29,7 @@ function initMap(geojsonUrl, styleFunction) {
 
     const homeButton = document.createElement('div');
     homeButton.className = 'ol-control ol-unselectable home-button';
-    homeButton.innerHTML = '🏠'; // Using emoji for house icon
+    homeButton.innerHTML = '🏠';
     homeButton.title = 'Go to home page';
     homeButton.addEventListener('click', function() {
         window.location.href = '../index.html';
@@ -39,10 +39,15 @@ function initMap(geojsonUrl, styleFunction) {
         element: homeButton
     }));
   
+    // API-based data layer
+    const apiBaseUrl = '/api'; // Adjust this to your API path
+    const collectionUrl = `${apiBaseUrl}/collections/${collectionName}/items`;
+    
     const dataLayer = new ol.layer.Vector({
       source: new ol.source.Vector({
-        url: geojsonUrl,
+        url: collectionUrl,
         format: new ol.format.GeoJSON(),
+        attributions: 'Unkenprojekt Data'
       }),
       style: styleFunction,
     });
@@ -155,8 +160,8 @@ function initMap(geojsonUrl, styleFunction) {
   
       let content = '<div class="popup-content">';
       for (const key in properties) {
-        if (properties.hasOwnProperty(key) && key !== "geometry") {
-          const alias = propertyAliases[key] || key;
+        if (Object.hasOwn(propertyAliases, key)) {
+          const alias = propertyAliases[key];
           content += `<span class="bold">${alias}:</span> ${properties[key] || "-"}<br>`;
         }
       }
