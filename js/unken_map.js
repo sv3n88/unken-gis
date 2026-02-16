@@ -1,5 +1,5 @@
 function styleFunction(feature) {
-    const huepferlinge = feature.get("huepferlinge");
+    const huepferlinge = parseInt(feature.get("huepferlinge")) || 0;
     let fillColor = huepferlinge === 0 ? "orange" : "green";
     return new ol.style.Style({
       image: new ol.style.Circle({
@@ -10,7 +10,8 @@ function styleFunction(feature) {
     });
   }
   
-  const map = initMap("../data/biotope.json", styleFunction);
+  // Use collection name instead of JSON file path
+  const map = initMap("biotope", styleFunction);
 
   // Add Unken-counter
 const unkenCounter = document.createElement('div');
@@ -26,7 +27,9 @@ function updateUnkenCounter() {
   map.getLayers().getArray().forEach(function(layer) {
     if (layer instanceof ol.layer.Vector) {
       layer.getSource().getFeatures().forEach(function(feature) {
-        totalHuepferlinge += feature.get('huepferlinge') || 0;
+        // Convert to integer before adding
+        const huepferlinge = parseInt(feature.get('huepferlinge')) || 0;
+        totalHuepferlinge += huepferlinge;
       });
     }
   });

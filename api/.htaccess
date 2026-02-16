@@ -1,0 +1,22 @@
+# Enable URL rewriting
+RewriteEngine On
+
+# Set base directory
+RewriteBase /api/
+
+# Don't rewrite existing files or directories
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+
+# Route everything through index.php
+RewriteRule ^(.*)$ index.php [QSA,L]
+
+# Set default charset
+AddDefaultCharset UTF-8
+
+# Enable CORS (for development)
+<IfModule mod_headers.c>
+    Header set Access-Control-Allow-Origin "*"
+    Header set Access-Control-Allow-Methods "GET, OPTIONS"
+    Header set Access-Control-Allow-Headers "Content-Type"
+</IfModule>

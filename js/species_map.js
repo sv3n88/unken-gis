@@ -9,4 +9,5 @@ function styleFunction() {
     });
   }
   
-  const map = initMap("../data/species.json", styleFunction);
+  // Use collection name instead of JSON file path
+  const map = initMap("species", styleFunction);
