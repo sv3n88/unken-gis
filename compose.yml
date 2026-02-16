@@ -1,0 +1,44 @@
+services:
+  postgis:
+    image: postgis/postgis:15-3.4
+    container_name: unkenprojekt_postgis
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_INITDB_ARGS=--encoding=UTF8 --locale=C
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/initdb/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gisuser -d gisdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - unkenprojekt_network
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: unkenprojekt_app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgis:
+        condition: service_healthy
+    networks:
+      - unkenprojekt_network
+
+networks:
+  unkenprojekt_network:
+    driver: bridge
+
+volumes:
+  pgdata:
+    driver: local
