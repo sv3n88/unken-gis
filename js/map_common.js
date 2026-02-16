@@ -160,8 +160,8 @@ function initMap(collectionName, styleFunction) {
   
       let content = '<div class="popup-content">';
       for (const key in properties) {
-        if (properties.hasOwnProperty(key) && key !== "geometry") {
-          const alias = propertyAliases[key] || key;
+        if (Object.hasOwn(propertyAliases, key)) {
+          const alias = propertyAliases[key];
           content += `<span class="bold">${alias}:</span> ${properties[key] || "-"}<br>`;
         }
       }
