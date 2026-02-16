@@ -1,6 +1,6 @@
 services:
   postgis:
-    image: postgis/postgis:15-3.4
+    image: postgis/postgis:15-3.4-alpine
     container_name: unkenprojekt_postgis
     restart: unless-stopped
     environment:
