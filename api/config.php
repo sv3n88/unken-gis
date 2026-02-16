@@ -1,29 +1,69 @@
 <?php
 /**
  * Database Configuration
- * Connects to your existing PostGIS database
+ * Loads configuration from .env file
  */
 
+/**
+ * Load environment variables from .env file
+ */
+function loadEnv($path) {
+    if (!file_exists($path)) {
+        throw new Exception('.env file not found. Please copy .env.example to .env and configure it.');
+    }
+    
+    $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    
+    foreach ($lines as $line) {
+        // Skip comments
+        if (strpos(trim($line), '#') === 0) {
+            continue;
+        }
+        
+        // Parse KEY=VALUE
+        if (strpos($line, '=') !== false) {
+            list($key, $value) = explode('=', $line, 2);
+            $key = trim($key);
+            $value = trim($value);
+            
+            // Remove quotes if present
+            if ((substr($value, 0, 1) === '"' && substr($value, -1) === '"') ||
+                (substr($value, 0, 1) === "'" && substr($value, -1) === "'")) {
+                $value = substr($value, 1, -1);
+            }
+            
+            // Set as environment variable
+            putenv("$key=$value");
+            $_ENV[$key] = $value;
+            $_SERVER[$key] = $value;
+        }
+    }
+}
+
+// Load .env file from the same directory as config.php
+loadEnv(__DIR__ . '/../.env');
+
 // Database connection parameters
-define('DB_HOST', 'localhost');
-define('DB_PORT', '5432');
-define('DB_NAME', 'gisdb');
-define('DB_USER', 'gisuser');
-define('DB_PASSWORD', 'gispassword');
-define('DB_SCHEMA', 'unkenprojekt_2025'); // Change to unkenprojekt_2026 when needed
+define('DB_HOST', getenv('DB_HOST'));
+define('DB_PORT', getenv('DB_PORT'));
+define('DB_NAME', getenv('DB_NAME'));
+define('DB_USER', getenv('DB_USER'));
+define('DB_PASSWORD', getenv('DB_PASSWORD'));
+define('DB_SCHEMA', getenv('DB_SCHEMA'));
 
 // API Configuration
-define('API_TITLE', 'Unkenprojekt GIS API');
-define('API_VERSION', '1.0.0');
+define('API_TITLE', getenv('API_TITLE') ?: 'Unkenprojekt GIS API');
+define('API_VERSION', getenv('API_VERSION') ?: '1.0.0');
 define('DEFAULT_CRS', 'EPSG:4326'); // WGS84 for GeoJSON output
 define('STORAGE_CRS', 'EPSG:25832'); // Your database storage CRS
 
 // CORS settings (for local development)
-define('ALLOW_CORS', true);
+$allowCors = getenv('ALLOW_CORS');
+define('ALLOW_CORS', $allowCors === 'true' || $allowCors === '1');
 
 // Pagination defaults
-define('DEFAULT_LIMIT', 100);
-define('MAX_LIMIT', 1000);
+define('DEFAULT_LIMIT', intval(getenv('DEFAULT_LIMIT') ?: 100));
+define('MAX_LIMIT', intval(getenv('MAX_LIMIT') ?: 1000));
 
 /**
  * Get database connection
