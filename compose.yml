@@ -44,7 +44,7 @@ services:
     - DOMAIN=${DOMAIN}
     volumes:
       - ./nginx/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
-      - ./:/var/www/html:ro
+      - ./app:/var/www/html:ro
       - ./ssl:/etc/nginx/ssl:ro    # serve your static files directly
     depends_on:
       - app
