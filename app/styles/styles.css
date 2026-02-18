@@ -143,49 +143,29 @@ body {
   display: none;
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.80);
+  background: rgba(0, 0, 0, 0.88);
   z-index: 9999;
   align-items: center;
   justify-content: center;
-  padding: 20px;
-  box-sizing: border-box;
 }
 .photo-modal-overlay.active {
   display: flex;
 }
-.photo-modal-box {
-  position: relative;
-  background: #fff;
-  border-radius: 10px;
-  padding: 10px;
-  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6);
-  max-width: 90vw;
-  max-height: 90vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.photo-modal-box img {
-  display: block;
-  max-width: 85vw;
-  max-height: 82vh;
-  border-radius: 6px;
-  object-fit: contain;
-}
+
+/* Close button — floats in top-right corner of the screen, always reachable */
 .photo-modal-close {
-  position: absolute;
-  top: -16px;
-  right: -16px;
-  background: #fff;
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  background: rgba(255,255,255,0.92);
   border: 2px solid #ccc;
   border-radius: 50%;
-  width: 34px;
-  height: 34px;
-  font-size: 17px;
-  line-height: 1;
+  width: 38px;
+  height: 38px;
+  font-size: 18px;
   cursor: pointer;
-  z-index: 10000;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  z-index: 10001;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -197,16 +177,79 @@ body {
   border-color: #e53935;
 }
 
-/* Loading / error states inside modal */
+/* Zoom controls */
+.photo-modal-zoom-controls {
+  position: fixed;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 10px;
+  z-index: 10001;
+}
+.photo-modal-zoom-controls button {
+  background: rgba(255,255,255,0.92);
+  border: 2px solid #ccc;
+  border-radius: 6px;
+  width: 40px;
+  height: 40px;
+  font-size: 22px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.15s ease;
+  user-select: none;
+}
+.photo-modal-zoom-controls button:hover {
+  background: #fff;
+}
+.photo-modal-zoom-controls button:active {
+  background: #ddd;
+}
+
+/* Viewport — fills the whole overlay, clips overflowing zoomed image */
+.photo-modal-viewport {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  cursor: grab;
+}
+.photo-modal-viewport.dragging {
+  cursor: grabbing;
+}
+
+/* The image itself — transformed by JS */
+#photo-modal-box-inner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform-origin: center center;
+  /* actual transform set by JS */
+}
+#photo-modal-box-inner img {
+  display: block;
+  /* natural size capped so it fits the screen at scale=1 */
+  max-width: 90vw;
+  max-height: 90vh;
+  border-radius: 6px;
+  object-fit: contain;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* Loading / error states */
 .photo-modal-loading,
 .photo-modal-error {
   padding: 30px 40px;
   font-size: 18px;
-  color: #555;
+  color: #eee;
   font-family: "Calibri", "Calibri Sans", sans-serif;
+  white-space: nowrap;
 }
 .photo-modal-error {
-  color: #c0392b;
+  color: #ff6b6b;
 }
 
 /* Styles for the index page */

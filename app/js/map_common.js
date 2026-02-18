@@ -1,18 +1,88 @@
-// ── Photo modal helpers (global, used by both map pages) ─────────────────────
+// ── Photo modal with zoom + pan ───────────────────────────────────────────────
+
+const photoModal = {
+  scale:    1,
+  minScale: 0.5,
+  maxScale: 8,
+  tx: 0,   // translateX offset in px
+  ty: 0,   // translateY offset in px
+
+  // pinch state
+  lastPinchDist: null,
+
+  // drag state
+  dragging: false,
+  dragStartX: 0,
+  dragStartY: 0,
+  dragStartTx: 0,
+  dragStartTy: 0,
+};
+
+function _applyTransform() {
+  const inner = document.getElementById('photo-modal-box-inner');
+  if (!inner) return;
+  // Center in viewport via translate(-50%,-50%), then apply zoom + pan
+  inner.style.transform =
+    `translate(calc(-50% + ${photoModal.tx}px), calc(-50% + ${photoModal.ty}px)) scale(${photoModal.scale})`;
+}
+
+function _clampTranslation() {
+  // Allow panning only as far as the image edge reaches the viewport edge
+  const inner = document.getElementById('photo-modal-box-inner');
+  const viewport = document.getElementById('photo-modal-viewport');
+  if (!inner || !viewport) return;
+
+  const img = inner.querySelector('img');
+  if (!img) return;
+
+  const vw = viewport.clientWidth;
+  const vh = viewport.clientHeight;
+  const iw = img.offsetWidth  * photoModal.scale;
+  const ih = img.offsetHeight * photoModal.scale;
+
+  const maxTx = Math.max(0, (iw - vw) / 2);
+  const maxTy = Math.max(0, (ih - vh) / 2);
+
+  photoModal.tx = Math.max(-maxTx, Math.min(maxTx, photoModal.tx));
+  photoModal.ty = Math.max(-maxTy, Math.min(maxTy, photoModal.ty));
+}
+
+function zoomPhoto(direction) {
+  // direction: 1 = zoom in, -1 = zoom out, 0 = reset
+  if (direction === 0) {
+    photoModal.scale = 1;
+    photoModal.tx    = 0;
+    photoModal.ty    = 0;
+  } else {
+    const step = 0.4;
+    photoModal.scale = Math.min(
+      photoModal.maxScale,
+      Math.max(photoModal.minScale, photoModal.scale + direction * step)
+    );
+    _clampTranslation();
+  }
+  _applyTransform();
+}
 
 function openPhotoModal(src) {
   const modal = document.getElementById('photo-modal');
   const box   = document.getElementById('photo-modal-box-inner');
 
-  // Show a loading placeholder while the image loads
+  // Reset zoom/pan
+  photoModal.scale = 1;
+  photoModal.tx    = 0;
+  photoModal.ty    = 0;
+
   box.innerHTML = '<div class="photo-modal-loading">⏳ Wird geladen…</div>';
   modal.classList.add('active');
 
   const img = new Image();
   img.alt = 'Foto';
+  img.draggable = false;
   img.onload = function () {
     box.innerHTML = '';
     box.appendChild(img);
+    _applyTransform();
   };
   img.onerror = function () {
     box.innerHTML = '<div class="photo-modal-error">⚠️ Foto konnte nicht geladen werden.</div>';
@@ -27,17 +97,126 @@ function closePhotoModal() {
 }
 
 document.addEventListener('DOMContentLoaded', function () {
-  const modal = document.getElementById('photo-modal');
-  if (!modal) return;
+  const modal    = document.getElementById('photo-modal');
+  const viewport = document.getElementById('photo-modal-viewport');
+  if (!modal || !viewport) return;
 
-  // Close on backdrop click
+  // ── Close on backdrop click (outside viewport) ──────────────────────────
   modal.addEventListener('click', function (e) {
     if (e.target === modal) closePhotoModal();
   });
 
-  // Close on Escape key
+  // ── Escape key ──────────────────────────────────────────────────────────
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') closePhotoModal();
+    if (!modal.classList.contains('active')) return;
+    if (e.key === '+' || e.key === '=') zoomPhoto(1);
+    if (e.key === '-')                   zoomPhoto(-1);
+    if (e.key === '0')                   zoomPhoto(0);
+  });
+
+  // ── Mouse wheel zoom ────────────────────────────────────────────────────
+  viewport.addEventListener('wheel', function (e) {
+    e.preventDefault();
+    const direction = e.deltaY < 0 ? 1 : -1;
+    // Zoom toward the cursor position
+    const rect   = viewport.getBoundingClientRect();
+    const cx      = e.clientX - rect.left - rect.width  / 2;
+    const cy      = e.clientY - rect.top  - rect.height / 2;
+    const oldScale = photoModal.scale;
+    const step     = 0.15;
+    photoModal.scale = Math.min(
+      photoModal.maxScale,
+      Math.max(photoModal.minScale, photoModal.scale + direction * step)
+    );
+    // Shift translation so zoom centres on cursor
+    const scaleDelta = photoModal.scale / oldScale;
+    photoModal.tx = cx + (photoModal.tx - cx) * scaleDelta;
+    photoModal.ty = cy + (photoModal.ty - cy) * scaleDelta;
+    _clampTranslation();
+    _applyTransform();
+  }, { passive: false });
+
+  // ── Mouse drag to pan ───────────────────────────────────────────────────
+  viewport.addEventListener('mousedown', function (e) {
+    if (e.button !== 0) return;
+    photoModal.dragging   = true;
+    photoModal.dragStartX = e.clientX;
+    photoModal.dragStartY = e.clientY;
+    photoModal.dragStartTx = photoModal.tx;
+    photoModal.dragStartTy = photoModal.ty;
+    viewport.classList.add('dragging');
+    e.preventDefault();
+  });
+
+  window.addEventListener('mousemove', function (e) {
+    if (!photoModal.dragging) return;
+    photoModal.tx = photoModal.dragStartTx + (e.clientX - photoModal.dragStartX);
+    photoModal.ty = photoModal.dragStartTy + (e.clientY - photoModal.dragStartY);
+    _clampTranslation();
+    _applyTransform();
+  });
+
+  window.addEventListener('mouseup', function () {
+    if (!photoModal.dragging) return;
+    photoModal.dragging = false;
+    viewport.classList.remove('dragging');
+  });
+
+  // ── Touch: pinch-to-zoom + drag to pan ─────────────────────────────────
+  viewport.addEventListener('touchstart', function (e) {
+    if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      photoModal.lastPinchDist = Math.sqrt(dx * dx + dy * dy);
+    } else if (e.touches.length === 1) {
+      photoModal.dragging    = true;
+      photoModal.dragStartX  = e.touches[0].clientX;
+      photoModal.dragStartY  = e.touches[0].clientY;
+      photoModal.dragStartTx = photoModal.tx;
+      photoModal.dragStartTy = photoModal.ty;
+    }
+  }, { passive: true });
+
+  viewport.addEventListener('touchmove', function (e) {
+    e.preventDefault();
+    if (e.touches.length === 2) {
+      const dx   = e.touches[0].clientX - e.touches[1].clientX;
+      const dy   = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (photoModal.lastPinchDist !== null) {
+        const ratio = dist / photoModal.lastPinchDist;
+        photoModal.scale = Math.min(
+          photoModal.maxScale,
+          Math.max(photoModal.minScale, photoModal.scale * ratio)
+        );
+        _clampTranslation();
+        _applyTransform();
+      }
+      photoModal.lastPinchDist = dist;
+    } else if (e.touches.length === 1 && photoModal.dragging) {
+      photoModal.tx = photoModal.dragStartTx + (e.touches[0].clientX - photoModal.dragStartX);
+      photoModal.ty = photoModal.dragStartTy + (e.touches[0].clientY - photoModal.dragStartY);
+      _clampTranslation();
+      _applyTransform();
+    }
+  }, { passive: false });
+
+  viewport.addEventListener('touchend', function (e) {
+    if (e.touches.length < 2) photoModal.lastPinchDist = null;
+    if (e.touches.length === 0) photoModal.dragging = false;
+  }, { passive: true });
+
+  // ── Double-tap / double-click to reset zoom ─────────────────────────────
+  let lastTap = 0;
+  viewport.addEventListener('touchend', function (e) {
+    const now = Date.now();
+    if (now - lastTap < 300) zoomPhoto(0);
+    lastTap = now;
+  }, { passive: true });
+
+  viewport.addEventListener('dblclick', function () {
+    zoomPhoto(0);
   });
 });
 
