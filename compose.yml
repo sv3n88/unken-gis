@@ -38,11 +38,14 @@ services:
     container_name: unkenprojekt_nginx
     restart: unless-stopped
     ports:
-      - "80:80"       # HTTP
-      # - "443:443"   # uncomment when you add TLS
+      - "80:80"      
+      - "443:443"   
+    environment:
+    - DOMAIN=${DOMAIN}
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./:/var/www/html:ro    # serve your static files directly
+      - ./nginx/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./:/var/www/html:ro
+      - ./ssl:/etc/nginx/ssl:ro    # serve your static files directly
     depends_on:
       - app
     networks:
