@@ -8,6 +8,17 @@ gzip on;
 gzip_types text/plain text/css application/json application/javascript;
 
 # -------------------------------------------------
+# Refuse direct IP access
+# -------------------------------------------------
+server {
+    listen 80 default_server;
+    listen 443 default_server;
+    server_name _;
+
+    return 444;
+}
+
+# -------------------------------------------------
 # HTTP → HTTPS REDIRECT
 # -------------------------------------------------
 server {
