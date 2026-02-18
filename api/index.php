@@ -238,7 +238,7 @@ function getItems($collectionId) {
     // Get column names (exclude geometry for properties)
     $columns = getTableColumns($conn, $schema, $collectionId);
     $propertyColumns = array_filter($columns, function($col) {
-        return $col !== 'geom';
+        return !in_array($col, ['geom', 'photo_hyperlink']);
     });
     
     $propertyList = implode(', ', array_map(function($col) {
@@ -354,7 +354,7 @@ function getItem($collectionId, $itemId) {
     
     $columns = getTableColumns($conn, $schema, $collectionId);
     $propertyColumns = array_filter($columns, function($col) {
-        return $col !== 'geom';
+        return !in_array($col, ['geom', 'photo_hyperlink']);
     });
     
     $propertyList = implode(', ', array_map(function($col) {
