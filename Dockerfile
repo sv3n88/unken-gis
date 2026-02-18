@@ -13,8 +13,5 @@ COPY app /app/
 COPY api /app/api
 COPY .env.docker /app/.env
 
-# Create photos directory (for runtime uploads)
-RUN mkdir -p /app/photos && chmod 777 /app/photos
-
 # Use PHP's built-in web server
 CMD ["php", "-S", "0.0.0.0:3000", "-t", "/app"]
