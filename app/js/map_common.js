@@ -175,12 +175,17 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 
   // ── Touch: pinch-to-zoom + drag to pan ─────────────────────────────────
+  let isPinching = false;
+
   viewport.addEventListener('touchstart', function (e) {
     if (e.touches.length === 2) {
+      // Entering pinch — cancel any active drag
+      isPinching = true;
+      photoModal.dragging = false;
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       photoModal.lastPinchDist = Math.sqrt(dx * dx + dy * dy);
-    } else if (e.touches.length === 1) {
+    } else if (e.touches.length === 1 && !isPinching) {
       photoModal.dragging    = true;
       photoModal.dragStartX  = e.touches[0].clientX;
       photoModal.dragStartY  = e.touches[0].clientY;
@@ -214,13 +219,25 @@ document.addEventListener('DOMContentLoaded', function () {
   }, { passive: false });
 
   viewport.addEventListener('touchend', function (e) {
-    if (e.touches.length < 2) photoModal.lastPinchDist = null;
-    if (e.touches.length === 0) photoModal.dragging = false;
+    if (e.touches.length < 2) {
+      // Pinch released — lock in the current scale, don't let drag reset it
+      photoModal.lastPinchDist = null;
+      if (e.touches.length === 0) {
+        isPinching = false;
+        photoModal.dragging = false;
+      } else if (e.touches.length === 1 && isPinching) {
+        // One finger still down after pinch — re-anchor drag from current position
+        // so releasing the second finger doesn't start an accidental pan
+        photoModal.dragging    = false;
+        isPinching             = true; // stay in pinch-guard until all fingers lift
+      }
+    }
   }, { passive: true });
 
-  // ── Double-tap / double-click to reset zoom ─────────────────────────────
+  // ── Double-tap to reset zoom ────────────────────────────────────────────
   let lastTap = 0;
   viewport.addEventListener('touchend', function (e) {
+    if (isPinching) return; // don't trigger double-tap during pinch
     const now = Date.now();
     if (now - lastTap < 300) zoomPhoto(0);
     lastTap = now;
