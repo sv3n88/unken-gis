@@ -272,9 +272,9 @@ function initMap(collectionName, styleFunction) {
   const map = new ol.Map({
     layers: [googleLayer],
     controls: ol.control.defaults.defaults({ attribution: false }).extend([attribution]),
-    interactions: ol.interaction.defaults.defaults({ dragPan: false, kinetic: null }).extend([
-      new ol.interaction.DragPan({ kinetic: null }),
-    ]),
+    interactions: ol.interaction.defaults.defaults({
+      kinetic: null
+    }),
     target: "map",
     view: new ol.View({
       center: ol.proj.fromLonLat([11.145, 48.765]),
@@ -292,7 +292,7 @@ function initMap(collectionName, styleFunction) {
   });
   map.addControl(new ol.control.Control({ element: homeButton }));
 
-  // Data layer via OGC API Features
+  // Data layer
   const apiBaseUrl = '/api';
   const collectionUrl = `${apiBaseUrl}/collections/${collectionName}/items`;
 
@@ -322,6 +322,7 @@ function initMap(collectionName, styleFunction) {
 
   const selectedFeatures = select.getFeatures();
   const popup = document.getElementById("popup");
+
   let overlay = new ol.Overlay({
     element: popup,
     positioning: "bottom-center",
@@ -330,25 +331,21 @@ function initMap(collectionName, styleFunction) {
   });
   map.addOverlay(overlay);
 
-  // ── Stop map interactions from firing through the popup ───────────────────
-  let pointerDownInsidePopup = false;
-
-  popup.addEventListener("pointerdown",  function (e) { e.stopPropagation(); pointerDownInsidePopup = true;  });
-  popup.addEventListener("pointerup",    function (e) { e.stopPropagation(); pointerDownInsidePopup = false; });
-  popup.addEventListener("touchstart",   function (e) { e.stopPropagation(); });
-  popup.addEventListener("touchmove",    function (e) { e.stopPropagation(); });
-  popup.addEventListener("touchend",     function (e) { e.stopPropagation(); });
+  // Prevent map interaction through popup
+  popup.addEventListener("pointerdown",  e => e.stopPropagation());
+  popup.addEventListener("pointerup",    e => e.stopPropagation());
+  popup.addEventListener("touchstart",   e => e.stopPropagation());
+  popup.addEventListener("touchmove",    e => e.stopPropagation());
+  popup.addEventListener("touchend",     e => e.stopPropagation());
 
   popup.addEventListener("click", function (e) {
     e.stopPropagation();
+
     if (e.target.classList.contains("nav-button")) {
-      if (e.target.dataset.direction === "prev") {
-        showPreviousFeature();
-      } else if (e.target.dataset.direction === "next") {
-        showNextFeature();
-      }
+      if (e.target.dataset.direction === "prev") showPreviousFeature();
+      else showNextFeature();
     }
-    // Photo trigger
+
     if (e.target.classList.contains("photo-trigger") || e.target.closest(".photo-trigger")) {
       const trigger = e.target.classList.contains("photo-trigger")
         ? e.target
@@ -357,7 +354,6 @@ function initMap(collectionName, styleFunction) {
     }
   });
 
-  // ── Property display aliases ──────────────────────────────────────────────
   const propertyAliases = {
     huepferlinge: "Anzahl Hüpferlinge",
     datum:        "Datum",
@@ -386,24 +382,28 @@ function initMap(collectionName, styleFunction) {
   }
 
   function showPreviousFeature() {
-    currentFeatureIndex = (currentFeatureIndex - 1 + featuresAtLocation.length) % featuresAtLocation.length;
+    currentFeatureIndex =
+      (currentFeatureIndex - 1 + featuresAtLocation.length) %
+      featuresAtLocation.length;
     updatePopup();
   }
 
   function showNextFeature() {
-    currentFeatureIndex = (currentFeatureIndex + 1) % featuresAtLocation.length;
+    currentFeatureIndex =
+      (currentFeatureIndex + 1) %
+      featuresAtLocation.length;
     updatePopup();
   }
 
   function updatePopup() {
     if (featuresAtLocation.length === 0) return;
 
-    const feature    = featuresAtLocation[currentFeatureIndex];
-    const properties = feature.getProperties();
+    const feature     = featuresAtLocation[currentFeatureIndex];
+    const properties  = feature.getProperties();
     const coordinates = feature.getGeometry().getCoordinates();
 
-    // Attribute rows
     let content = '<div class="popup-content">';
+
     for (const key in properties) {
       if (Object.hasOwn(propertyAliases, key)) {
         const alias = propertyAliases[key];
@@ -411,7 +411,6 @@ function initMap(collectionName, styleFunction) {
       }
     }
 
-    // Photo button — only shown when the feature has a photo path
     if (properties.photo) {
       content += `
         <div class="photo-trigger" data-photo="${properties.photo}" title="Foto anzeigen">
@@ -421,7 +420,6 @@ function initMap(collectionName, styleFunction) {
 
     content += '</div>';
 
-    // Multi-feature navigation
     if (featuresAtLocation.length > 1) {
       content += `
         <div class="popup-navigation">
@@ -434,7 +432,6 @@ function initMap(collectionName, styleFunction) {
     popup.innerHTML = content;
     overlay.setPosition(coordinates);
 
-    // Touch handlers for nav buttons
     popup.querySelectorAll(".nav-button").forEach(function (button) {
       button.addEventListener("touchend", function (e) {
         e.preventDefault();
@@ -444,7 +441,6 @@ function initMap(collectionName, styleFunction) {
       });
     });
 
-    // Touch handler for photo trigger
     const photoTrigger = popup.querySelector(".photo-trigger");
     if (photoTrigger) {
       photoTrigger.addEventListener("touchend", function (e) {
@@ -466,54 +462,38 @@ function initMap(collectionName, styleFunction) {
     const popupPosition = overlay.getPosition();
     if (!popupPosition) return false;
     const pixel = map.getPixelFromCoordinate(popupPosition);
-    return pixel[0] >= 0 && pixel[0] < mapSize[0] && pixel[1] >= 0 && pixel[1] < mapSize[1];
+    return pixel[0] >= 0 &&
+           pixel[0] < mapSize[0] &&
+           pixel[1] >= 0 &&
+           pixel[1] < mapSize[1];
   }
 
   map.on("moveend", function () {
     if (!isPopupVisible()) clearPopup();
   });
 
-  // ── Click / drag detection ────────────────────────────────────────────────
-  let startPoint = null;
-  let isClick    = true;
-  const movementTolerance = isMobile ? 10 : 3;
+  // ✅ FIXED: Use OpenLayers singleclick instead of manual pointer detection
+  map.on("singleclick", function (evt) {
+    const feature = map.forEachFeatureAtPixel(
+      evt.pixel,
+      function (f) { return f; },
+      { hitTolerance: isMobile ? 15 : 1 }
+    );
 
-  map.on("pointerdown", function (evt) {
-    startPoint = evt.pixel;
-    isClick    = true;
-  });
-
-  map.on("pointermove", function (evt) {
-    if (startPoint) {
-      const dx = evt.pixel[0] - startPoint[0];
-      const dy = evt.pixel[1] - startPoint[1];
-      if (Math.sqrt(dx * dx + dy * dy) > movementTolerance) isClick = false;
+    if (feature) {
+      selectedFeatures.clear();
+      selectedFeatures.push(feature);
+      updateFeaturesAtLocation(feature);
+    } else {
+      clearPopup();
     }
   });
 
-  map.on("pointerup", function (evt) {
-    if (isClick) {
-      const feature = map.forEachFeatureAtPixel(
-        evt.pixel,
-        function (f) { return f; },
-        { hitTolerance: isMobile ? 15 : 1 }
-      );
-
-      if (feature) {
-        selectedFeatures.clear();
-        selectedFeatures.push(feature);
-        updateFeaturesAtLocation(feature);
-      } else {
-        clearPopup();
-      }
-    }
-    startPoint = null;
-  });
-
-  // ── Basemap switcher ──────────────────────────────────────────────────────
+  // Basemap switcher
   document.getElementById("osm").addEventListener("click", function () {
     map.getLayers().setAt(0, osmLayer);
   });
+
   document.getElementById("google").addEventListener("click", function () {
     map.getLayers().setAt(0, googleLayer);
   });
