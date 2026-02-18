@@ -1,11 +1,22 @@
 function styleFunction(feature) {
     const huepferlinge = parseInt(feature.get("huepferlinge")) || 0;
-    let fillColor = huepferlinge === 0 ? "orange" : "green";
+    const bemerkung = feature.get("bemerkung");
+    let fillColor;
+    if (huepferlinge === 0 && bemerkung == null) {
+       fillColor = "rgba(0,0,0,0)";
+       stroke = "green";    // transparent
+    } else if (huepferlinge === 0) {
+       fillColor = "orange";
+       stroke = "green";    // huepferlinge=0 but has bemerkung
+    } else {
+        fillColor = "green";
+        stroke = "black";     // huepferlinge > 0
+    }
     return new ol.style.Style({
       image: new ol.style.Circle({
         radius: 12.5,
         fill: new ol.style.Fill({ color: fillColor }),
-        stroke: new ol.style.Stroke({ color: "red", width: 3 }),
+        stroke: new ol.style.Stroke({ color: stroke, width: 3 }),
       }),
     });
   }
