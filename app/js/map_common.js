@@ -272,6 +272,7 @@ function initMap(collectionName, styleFunction) {
   const map = new ol.Map({
     layers: [googleLayer],
     controls: ol.control.defaults.defaults({ attribution: false }).extend([attribution]),
+    interactions: ol.interaction.defaults.defaults({ kinetic: null }),
     target: "map",
     view: new ol.View({
       center: ol.proj.fromLonLat([11.145, 48.765]),
