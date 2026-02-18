@@ -4,8 +4,9 @@ const photoModal = {
   scale:    1,
   minScale: 0.5,
   maxScale: 8,
-  tx: 0,   // translateX offset in px
-  ty: 0,   // translateY offset in px
+  tx: 0,       // translateX offset in px
+  ty: 0,       // translateY offset in px
+  rotation: 0, // degrees, multiples of 90
 
   // pinch state
   lastPinchDist: null,
@@ -21,9 +22,8 @@ const photoModal = {
 function _applyTransform() {
   const inner = document.getElementById('photo-modal-box-inner');
   if (!inner) return;
-  // Center in viewport via translate(-50%,-50%), then apply zoom + pan
   inner.style.transform =
-    `translate(calc(-50% + ${photoModal.tx}px), calc(-50% + ${photoModal.ty}px)) scale(${photoModal.scale})`;
+    `translate(calc(-50% + ${photoModal.tx}px), calc(-50% + ${photoModal.ty}px)) scale(${photoModal.scale}) rotate(${photoModal.rotation}deg)`;
 }
 
 function _clampTranslation() {
@@ -50,9 +50,10 @@ function _clampTranslation() {
 function zoomPhoto(direction) {
   // direction: 1 = zoom in, -1 = zoom out, 0 = reset
   if (direction === 0) {
-    photoModal.scale = 1;
-    photoModal.tx    = 0;
-    photoModal.ty    = 0;
+    photoModal.scale    = 1;
+    photoModal.tx       = 0;
+    photoModal.ty       = 0;
+    photoModal.rotation = 0;
   } else {
     const step = 0.4;
     photoModal.scale = Math.min(
@@ -64,14 +65,23 @@ function zoomPhoto(direction) {
   _applyTransform();
 }
 
+function rotatePhoto() {
+  photoModal.rotation = (photoModal.rotation + 90) % 360;
+  // Reset pan when rotating so the image stays centred
+  photoModal.tx = 0;
+  photoModal.ty = 0;
+  _applyTransform();
+}
+
 function openPhotoModal(src) {
   const modal = document.getElementById('photo-modal');
   const box   = document.getElementById('photo-modal-box-inner');
 
-  // Reset zoom/pan
-  photoModal.scale = 1;
-  photoModal.tx    = 0;
-  photoModal.ty    = 0;
+  // Reset zoom/pan/rotation
+  photoModal.scale    = 1;
+  photoModal.tx       = 0;
+  photoModal.ty       = 0;
+  photoModal.rotation = 0;
 
   box.innerHTML = '<div class="photo-modal-loading">⏳ Wird geladen…</div>';
   modal.classList.add('active');
@@ -113,6 +123,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (e.key === '+' || e.key === '=') zoomPhoto(1);
     if (e.key === '-')                   zoomPhoto(-1);
     if (e.key === '0')                   zoomPhoto(0);
+    if (e.key === 'r' || e.key === 'R')  rotatePhoto();
   });
 
   // ── Mouse wheel zoom ────────────────────────────────────────────────────
