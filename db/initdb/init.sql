@@ -10,9 +10,7 @@ CREATE TABLE IF NOT EXISTS unkenprojekt.biotope (
     id SERIAL PRIMARY KEY,
     huepferlinge INTEGER,
     datum DATE,
-    photo TEXT,
     bemerkung TEXT,
-    photo_hyperlink TEXT,
     region TEXT,
     geom GEOMETRY(POINT, 25832)
 );
@@ -21,10 +19,8 @@ CREATE TABLE IF NOT EXISTS unkenprojekt.species (
     id SERIAL PRIMARY KEY,
     name TEXT,
     datum DATE,
-    photo TEXT,
     anzahl INTEGER,
     bemerkung TEXT,
-    photo_hyperlink TEXT,
     geom GEOMETRY(POINT, 25832)
 );
 
@@ -32,11 +28,23 @@ CREATE TABLE IF NOT EXISTS unkenprojekt.gewaesser (
     id SERIAL PRIMARY KEY,
     name TEXT,
     datum DATE,
-    photo TEXT,
     bemerkung TEXT,
-    photo_hyperlink TEXT,
     region TEXT,
     geom GEOMETRY(POINT, 25832)
+);
+
+CREATE TABLE IF NOT EXISTS unkenprojekt.biotope_images (
+    id SERIAL PRIMARY KEY,
+    biotope_id INT REFERENCES unkenprojekt.biotope(id),
+    photo TEXT,
+    datum TIMESTAMPTZ
+);
+
+CREATE TABLE IF NOT EXISTS unkenprojekt.species_images (
+    id SERIAL PRIMARY KEY,
+    species_id INT REFERENCES unkenprojekt.species(id),
+    photo TEXT,
+    datum TIMESTAMPTZ
 );
 
 -- Create spatial indexes

@@ -26,12 +26,18 @@
       <div class="photo-modal-viewport" id="photo-modal-viewport">
         <div id="photo-modal-box-inner"></div>
       </div>
+
+      <!-- Gallery navigation arrows -->
+      <button id="photo-gallery-prev" class="photo-gallery-nav photo-gallery-prev" title="Vorheriges Foto">&#8592;</button>
+      <button id="photo-gallery-next" class="photo-gallery-nav photo-gallery-next" title="Nächstes Foto">&#8594;</button>
+      <div id="photo-gallery-counter" class="photo-gallery-counter"></div>
+
       <button class="photo-modal-close" onclick="closePhotoModal()" title="Schließen">✕</button>
       <div class="photo-modal-zoom-controls">
-        <button onclick="zoomPhoto(-1)"   title="Verkleinern">−</button>
-        <button onclick="zoomPhoto(0)"    title="Zurücksetzen">⊙</button>
-        <button onclick="zoomPhoto(1)"    title="Vergrößern">+</button>
-        <button onclick="rotatePhoto()"   title="Drehen">↻</button>
+        <button onclick="zoomPhoto(-1)"  title="Verkleinern">−</button>
+        <button onclick="zoomPhoto(0)"   title="Zurücksetzen">⊙</button>
+        <button onclick="zoomPhoto(1)"   title="Vergrößern">+</button>
+        <button onclick="rotatePhoto()"  title="Drehen">↻</button>
       </div>
     </div>
 

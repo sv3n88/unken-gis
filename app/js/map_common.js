@@ -1,34 +1,38 @@
-// ── Photo modal with zoom + pan ───────────────────────────────────────────────
+// ── Photo modal with zoom + pan + gallery ─────────────────────────────────────
 
 const photoModal = {
   scale:    1,
   minScale: 0.5,
   maxScale: 8,
-  tx: 0,       // translateX offset in px
-  ty: 0,       // translateY offset in px
-  rotation: 0, // degrees, multiples of 90
+  tx: 0,
+  ty: 0,
+  rotation: 0,
 
   // pinch state
   lastPinchDist: null,
 
   // drag state
-  dragging: false,
-  dragStartX: 0,
-  dragStartY: 0,
+  dragging:    false,
+  dragStartX:  0,
+  dragStartY:  0,
   dragStartTx: 0,
   dragStartTy: 0,
+
+  // gallery state
+  photos:       [],  // array of photo URL strings for the current feature
+  currentIndex: 0,   // index of the currently displayed photo
 };
 
 function _applyTransform() {
   const inner = document.getElementById('photo-modal-box-inner');
   if (!inner) return;
   inner.style.transform =
-    `translate(calc(-50% + ${photoModal.tx}px), calc(-50% + ${photoModal.ty}px)) scale(${photoModal.scale}) rotate(${photoModal.rotation}deg)`;
+    `translate(calc(-50% + ${photoModal.tx}px), calc(-50% + ${photoModal.ty}px)) ` +
+    `scale(${photoModal.scale}) rotate(${photoModal.rotation}deg)`;
 }
 
 function _clampTranslation() {
-  // Allow panning only as far as the image edge reaches the viewport edge
-  const inner = document.getElementById('photo-modal-box-inner');
+  const inner    = document.getElementById('photo-modal-box-inner');
   const viewport = document.getElementById('photo-modal-viewport');
   if (!inner || !viewport) return;
 
@@ -47,13 +51,75 @@ function _clampTranslation() {
   photoModal.ty = Math.max(-maxTy, Math.min(maxTy, photoModal.ty));
 }
 
+function _resetView() {
+  photoModal.scale    = 1;
+  photoModal.tx       = 0;
+  photoModal.ty       = 0;
+  photoModal.rotation = 0;
+}
+
+function _updateGalleryUI() {
+  const counter = document.getElementById('photo-gallery-counter');
+  const prev    = document.getElementById('photo-gallery-prev');
+  const next    = document.getElementById('photo-gallery-next');
+  const total   = photoModal.photos.length;
+
+  if (counter) {
+    counter.textContent = total > 1
+      ? `${photoModal.currentIndex + 1} / ${total}`
+      : '';
+  }
+
+  const showNav = total > 1;
+  if (prev) prev.style.display = showNav ? 'flex' : 'none';
+  if (next) next.style.display = showNav ? 'flex' : 'none';
+}
+
+function _loadPhotoAtIndex(index) {
+  const box = document.getElementById('photo-modal-box-inner');
+  if (!box) return;
+
+  _resetView();
+  box.innerHTML = '<div class="photo-modal-loading">⏳ Wird geladen…</div>';
+  _applyTransform();
+
+  const src = photoModal.photos[index];
+  const url = src.startsWith('/') ? src : '/' + src;
+
+  const img    = new Image();
+  img.alt      = 'Foto';
+  img.draggable = false;
+
+  img.onload = function () {
+    box.innerHTML = '';
+    box.appendChild(img);
+    _applyTransform();
+  };
+  img.onerror = function () {
+    box.innerHTML = '<div class="photo-modal-error">⚠️ Foto konnte nicht geladen werden.</div>';
+  };
+
+  img.src = url;
+  _updateGalleryUI();
+}
+
+function galleryPrev() {
+  if (photoModal.photos.length < 2) return;
+  photoModal.currentIndex =
+    (photoModal.currentIndex - 1 + photoModal.photos.length) % photoModal.photos.length;
+  _loadPhotoAtIndex(photoModal.currentIndex);
+}
+
+function galleryNext() {
+  if (photoModal.photos.length < 2) return;
+  photoModal.currentIndex =
+    (photoModal.currentIndex + 1) % photoModal.photos.length;
+  _loadPhotoAtIndex(photoModal.currentIndex);
+}
+
 function zoomPhoto(direction) {
-  // direction: 1 = zoom in, -1 = zoom out, 0 = reset
   if (direction === 0) {
-    photoModal.scale    = 1;
-    photoModal.tx       = 0;
-    photoModal.ty       = 0;
-    photoModal.rotation = 0;
+    _resetView();
   } else {
     const step = 0.4;
     photoModal.scale = Math.min(
@@ -67,43 +133,35 @@ function zoomPhoto(direction) {
 
 function rotatePhoto() {
   photoModal.rotation = (photoModal.rotation + 90) % 360;
-  // Reset pan when rotating so the image stays centred
   photoModal.tx = 0;
   photoModal.ty = 0;
   _applyTransform();
 }
 
-function openPhotoModal(src) {
+/**
+ * Open the photo modal.
+ * @param {string|string[]} photos      - single URL or array of URLs
+ * @param {number}          [startIndex=0] - which photo to show first
+ */
+function openPhotoModal(photos, startIndex = 0) {
   const modal = document.getElementById('photo-modal');
-  const box   = document.getElementById('photo-modal-box-inner');
+  if (!modal) return;
 
-  // Reset zoom/pan/rotation
-  photoModal.scale    = 1;
-  photoModal.tx       = 0;
-  photoModal.ty       = 0;
-  photoModal.rotation = 0;
+  photoModal.photos       = Array.isArray(photos) ? photos : [photos];
+  photoModal.currentIndex = Math.max(0, Math.min(startIndex, photoModal.photos.length - 1));
 
-  box.innerHTML = '<div class="photo-modal-loading">⏳ Wird geladen…</div>';
   modal.classList.add('active');
-
-  const img = new Image();
-  img.alt = 'Foto';
-  img.draggable = false;
-  img.onload = function () {
-    box.innerHTML = '';
-    box.appendChild(img);
-    _applyTransform();
-  };
-  img.onerror = function () {
-    box.innerHTML = '<div class="photo-modal-error">⚠️ Foto konnte nicht geladen werden.</div>';
-  };
-  img.src = src;
+  _loadPhotoAtIndex(photoModal.currentIndex);
 }
 
 function closePhotoModal() {
   const modal = document.getElementById('photo-modal');
-  modal.classList.remove('active');
-  document.getElementById('photo-modal-box-inner').innerHTML = '';
+  if (modal) modal.classList.remove('active');
+
+  const box = document.getElementById('photo-modal-box-inner');
+  if (box) box.innerHTML = '';
+
+  photoModal.photos = [];
 }
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -111,49 +169,53 @@ document.addEventListener('DOMContentLoaded', function () {
   const viewport = document.getElementById('photo-modal-viewport');
   if (!modal || !viewport) return;
 
-  // ── Close on backdrop click (outside viewport) ──────────────────────────
+  // ── Close on backdrop click (outside viewport) ───────────────────────────
   modal.addEventListener('click', function (e) {
     if (e.target === modal) closePhotoModal();
   });
 
-  // ── Escape key ──────────────────────────────────────────────────────────
+  // ── Keyboard shortcuts ───────────────────────────────────────────────────
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') closePhotoModal();
     if (!modal.classList.contains('active')) return;
-    if (e.key === '+' || e.key === '=') zoomPhoto(1);
+    if (e.key === 'Escape')              closePhotoModal();
+    if (e.key === '+' || e.key === '=')  zoomPhoto(1);
     if (e.key === '-')                   zoomPhoto(-1);
     if (e.key === '0')                   zoomPhoto(0);
     if (e.key === 'r' || e.key === 'R')  rotatePhoto();
+    if (e.key === 'ArrowLeft')           galleryPrev();
+    if (e.key === 'ArrowRight')          galleryNext();
   });
 
-  // ── Mouse wheel zoom ────────────────────────────────────────────────────
+  // ── Mouse wheel zoom ─────────────────────────────────────────────────────
   viewport.addEventListener('wheel', function (e) {
     e.preventDefault();
     const direction = e.deltaY < 0 ? 1 : -1;
-    // Zoom toward the cursor position
-    const rect   = viewport.getBoundingClientRect();
-    const cx      = e.clientX - rect.left - rect.width  / 2;
-    const cy      = e.clientY - rect.top  - rect.height / 2;
-    const oldScale = photoModal.scale;
-    const step     = 0.15;
+    const rect      = viewport.getBoundingClientRect();
+    const cx        = e.clientX - rect.left - rect.width  / 2;
+    const cy        = e.clientY - rect.top  - rect.height / 2;
+    const oldScale  = photoModal.scale;
+    const step      = 0.15;
+
     photoModal.scale = Math.min(
       photoModal.maxScale,
       Math.max(photoModal.minScale, photoModal.scale + direction * step)
     );
-    // Shift translation so zoom centres on cursor
+
+    // Zoom toward cursor position
     const scaleDelta = photoModal.scale / oldScale;
-    photoModal.tx = cx + (photoModal.tx - cx) * scaleDelta;
-    photoModal.ty = cy + (photoModal.ty - cy) * scaleDelta;
+    photoModal.tx    = cx + (photoModal.tx - cx) * scaleDelta;
+    photoModal.ty    = cy + (photoModal.ty - cy) * scaleDelta;
+
     _clampTranslation();
     _applyTransform();
   }, { passive: false });
 
-  // ── Mouse drag to pan ───────────────────────────────────────────────────
+  // ── Mouse drag to pan ────────────────────────────────────────────────────
   viewport.addEventListener('mousedown', function (e) {
     if (e.button !== 0) return;
-    photoModal.dragging   = true;
-    photoModal.dragStartX = e.clientX;
-    photoModal.dragStartY = e.clientY;
+    photoModal.dragging    = true;
+    photoModal.dragStartX  = e.clientX;
+    photoModal.dragStartY  = e.clientY;
     photoModal.dragStartTx = photoModal.tx;
     photoModal.dragStartTy = photoModal.ty;
     viewport.classList.add('dragging');
@@ -174,13 +236,12 @@ document.addEventListener('DOMContentLoaded', function () {
     viewport.classList.remove('dragging');
   });
 
-  // ── Touch: pinch-to-zoom + drag to pan ─────────────────────────────────
+  // ── Touch: pinch-to-zoom + drag to pan ──────────────────────────────────
   let isPinching = false;
 
   viewport.addEventListener('touchstart', function (e) {
     if (e.touches.length === 2) {
-      // Entering pinch — cancel any active drag
-      isPinching = true;
+      isPinching          = true;
       photoModal.dragging = false;
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
@@ -201,7 +262,7 @@ document.addEventListener('DOMContentLoaded', function () {
       const dy   = e.touches[0].clientY - e.touches[1].clientY;
       const dist = Math.sqrt(dx * dx + dy * dy);
       if (photoModal.lastPinchDist !== null) {
-        const ratio = dist / photoModal.lastPinchDist;
+        const ratio      = dist / photoModal.lastPinchDist;
         photoModal.scale = Math.min(
           photoModal.maxScale,
           Math.max(photoModal.minScale, photoModal.scale * ratio)
@@ -220,24 +281,22 @@ document.addEventListener('DOMContentLoaded', function () {
 
   viewport.addEventListener('touchend', function (e) {
     if (e.touches.length < 2) {
-      // Pinch released — lock in the current scale, don't let drag reset it
       photoModal.lastPinchDist = null;
       if (e.touches.length === 0) {
-        isPinching = false;
+        isPinching          = false;
         photoModal.dragging = false;
       } else if (e.touches.length === 1 && isPinching) {
-        // One finger still down after pinch — re-anchor drag from current position
-        // so releasing the second finger doesn't start an accidental pan
-        photoModal.dragging    = false;
-        isPinching             = true; // stay in pinch-guard until all fingers lift
+        // Second finger lifted — stay in pinch-guard to avoid accidental pan
+        photoModal.dragging = false;
+        isPinching          = true;
       }
     }
   }, { passive: true });
 
-  // ── Double-tap to reset zoom ────────────────────────────────────────────
+  // ── Double-tap to reset zoom ─────────────────────────────────────────────
   let lastTap = 0;
   viewport.addEventListener('touchend', function (e) {
-    if (isPinching) return; // don't trigger double-tap during pinch
+    if (isPinching) return;
     const now = Date.now();
     if (now - lastTap < 300) zoomPhoto(0);
     lastTap = now;
@@ -246,6 +305,33 @@ document.addEventListener('DOMContentLoaded', function () {
   viewport.addEventListener('dblclick', function () {
     zoomPhoto(0);
   });
+
+  // ── Gallery arrow buttons (delegated from modal root) ────────────────────
+  modal.addEventListener('click', function (e) {
+    const prev = e.target.closest('#photo-gallery-prev');
+    const next = e.target.closest('#photo-gallery-next');
+    if (prev) galleryPrev();
+    if (next) galleryNext();
+  });
+
+  // Gallery arrow touch events (prevent ghost clicks on mobile)
+  const prevBtn = document.getElementById('photo-gallery-prev');
+  const nextBtn = document.getElementById('photo-gallery-next');
+
+  if (prevBtn) {
+    prevBtn.addEventListener('touchend', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      galleryPrev();
+    });
+  }
+  if (nextBtn) {
+    nextBtn.addEventListener('touchend', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      galleryNext();
+    });
+  }
 });
 
 // ── Main map initialiser ──────────────────────────────────────────────────────
@@ -272,9 +358,7 @@ function initMap(collectionName, styleFunction) {
   const map = new ol.Map({
     layers: [googleLayer],
     controls: ol.control.defaults.defaults({ attribution: false }).extend([attribution]),
-    interactions: ol.interaction.defaults.defaults({
-      kinetic: null
-    }),
+    interactions: ol.interaction.defaults.defaults({ kinetic: null }),
     target: "map",
     view: new ol.View({
       center: ol.proj.fromLonLat([11.145, 48.765]),
@@ -282,24 +366,24 @@ function initMap(collectionName, styleFunction) {
     }),
   });
 
-  // Home button
+  // ── Home button ──────────────────────────────────────────────────────────
   const homeButton = document.createElement('div');
   homeButton.className = 'ol-control ol-unselectable home-button';
   homeButton.innerHTML = '🏠';
-  homeButton.title = 'Go to home page';
+  homeButton.title     = 'Go to home page';
   homeButton.addEventListener('click', function () {
     window.location.href = '../index.html';
   });
   map.addControl(new ol.control.Control({ element: homeButton }));
 
-  // Data layer
-  const apiBaseUrl = '/api';
+  // ── Data layer ───────────────────────────────────────────────────────────
+  const apiBaseUrl    = '/api';
   const collectionUrl = `${apiBaseUrl}/collections/${collectionName}/items`;
 
   const dataLayer = new ol.layer.Vector({
     source: new ol.source.Vector({
-      url: collectionUrl,
-      format: new ol.format.GeoJSON(),
+      url:          collectionUrl,
+      format:       new ol.format.GeoJSON(),
       attributions: 'Unkenprojekt Data',
     }),
     style: styleFunction,
@@ -308,11 +392,12 @@ function initMap(collectionName, styleFunction) {
 
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
+  // ── Select interaction ───────────────────────────────────────────────────
   const select = new ol.interaction.Select({
     style: new ol.style.Style({
       image: new ol.style.Circle({
         radius: 12.5,
-        fill: new ol.style.Fill({ color: "yellow" }),
+        fill:   new ol.style.Fill({ color: "yellow" }),
         stroke: new ol.style.Stroke({ color: "red", width: 3 }),
       }),
     }),
@@ -321,39 +406,45 @@ function initMap(collectionName, styleFunction) {
   map.addInteraction(select);
 
   const selectedFeatures = select.getFeatures();
-  const popup = document.getElementById("popup");
 
-  let overlay = new ol.Overlay({
-    element: popup,
+  // ── Popup overlay ────────────────────────────────────────────────────────
+  const popup  = document.getElementById("popup");
+  const overlay = new ol.Overlay({
+    element:     popup,
     positioning: "bottom-center",
-    stopEvent: false,
-    offset: [0, -15],
+    stopEvent:   false,
+    offset:      [0, -15],
   });
   map.addOverlay(overlay);
 
-  // Prevent map interaction through popup
-  popup.addEventListener("pointerdown",  e => e.stopPropagation());
-  popup.addEventListener("pointerup",    e => e.stopPropagation());
-  popup.addEventListener("touchstart",   e => e.stopPropagation());
-  popup.addEventListener("touchmove",    e => e.stopPropagation());
-  popup.addEventListener("touchend",     e => e.stopPropagation());
+  // Prevent map interactions firing through the popup
+  ['pointerdown', 'pointerup', 'touchstart', 'touchmove', 'touchend'].forEach(function (ev) {
+    popup.addEventListener(ev, function (e) { e.stopPropagation(); });
+  });
 
+  // Popup click delegation
   popup.addEventListener("click", function (e) {
     e.stopPropagation();
 
+    // Feature navigation arrows
     if (e.target.classList.contains("nav-button")) {
       if (e.target.dataset.direction === "prev") showPreviousFeature();
-      else showNextFeature();
+      else                                        showNextFeature();
+      return;
     }
 
-    if (e.target.classList.contains("photo-trigger") || e.target.closest(".photo-trigger")) {
-      const trigger = e.target.classList.contains("photo-trigger")
-        ? e.target
-        : e.target.closest(".photo-trigger");
-      openPhotoModal('/' + trigger.dataset.photo);
+    // Photo thumbnail click → open gallery at that index
+    const trigger = e.target.classList.contains("photo-trigger")
+      ? e.target
+      : e.target.closest(".photo-trigger");
+    if (trigger) {
+      const photos = JSON.parse(trigger.dataset.photos || '[]');
+      const index  = parseInt(trigger.dataset.index  || '0', 10);
+      openPhotoModal(photos, index);
     }
   });
 
+  // ── Property display aliases ─────────────────────────────────────────────
   const propertyAliases = {
     huepferlinge: "Anzahl Hüpferlinge",
     datum:        "Datum",
@@ -363,17 +454,19 @@ function initMap(collectionName, styleFunction) {
     anzahl:       "Anzahl",
   };
 
+  // ── Multi-feature state ──────────────────────────────────────────────────
   let featuresAtLocation  = [];
   let currentFeatureIndex = 0;
 
   function updateFeaturesAtLocation(clickedFeature) {
-    const clickedCoordinate = clickedFeature.getGeometry().getCoordinates();
+    const coord = clickedFeature.getGeometry().getCoordinates();
     featuresAtLocation = [];
 
     map.getLayers().getArray().forEach(function (layer) {
       if (layer instanceof ol.layer.Vector) {
-        const featuresAtCoord = layer.getSource().getFeaturesAtCoordinate(clickedCoordinate);
-        featuresAtLocation = featuresAtLocation.concat(featuresAtCoord);
+        featuresAtLocation = featuresAtLocation.concat(
+          layer.getSource().getFeaturesAtCoordinate(coord)
+        );
       }
     });
 
@@ -383,43 +476,56 @@ function initMap(collectionName, styleFunction) {
 
   function showPreviousFeature() {
     currentFeatureIndex =
-      (currentFeatureIndex - 1 + featuresAtLocation.length) %
-      featuresAtLocation.length;
+      (currentFeatureIndex - 1 + featuresAtLocation.length) % featuresAtLocation.length;
     updatePopup();
   }
 
   function showNextFeature() {
-    currentFeatureIndex =
-      (currentFeatureIndex + 1) %
-      featuresAtLocation.length;
+    currentFeatureIndex = (currentFeatureIndex + 1) % featuresAtLocation.length;
     updatePopup();
   }
 
   function updatePopup() {
     if (featuresAtLocation.length === 0) return;
 
-    const feature     = featuresAtLocation[currentFeatureIndex];
-    const properties  = feature.getProperties();
-    const coordinates = feature.getGeometry().getCoordinates();
+    const feature    = featuresAtLocation[currentFeatureIndex];
+    const properties = feature.getProperties();
+    const coords     = feature.getGeometry().getCoordinates();
 
+    // ── Property rows ──────────────────────────────────────────────────────
     let content = '<div class="popup-content">';
 
     for (const key in properties) {
       if (Object.hasOwn(propertyAliases, key)) {
-        const alias = propertyAliases[key];
-        content += `<span class="bold">${alias}:</span> ${properties[key] ?? "-"}<br>`;
+        const value = properties[key] ?? '-';
+        content += `<span class="bold">${propertyAliases[key]}:</span> ${value}<br>`;
       }
     }
 
-    if (properties.photo) {
-      content += `
-        <div class="photo-trigger" data-photo="${properties.photo}" title="Foto anzeigen">
-          📷 Foto anzeigen
-        </div>`;
+    // ── Photo thumbnail strip ──────────────────────────────────────────────
+    const photos = properties.photos;
+    if (Array.isArray(photos) && photos.length > 0) {
+      // Embed the full photos array as JSON so the click handler can open the
+      // gallery at whichever thumbnail the user tapped.
+      const photosAttr = JSON.stringify(photos).replace(/"/g, '&quot;');
+
+      content += '<div class="photo-thumbs">';
+      photos.forEach(function (src, i) {
+        const url = src.startsWith('/') ? src : '/' + src;
+        content += `
+          <div class="photo-trigger photo-thumb"
+               data-photos="${photosAttr}"
+               data-index="${i}"
+               title="Foto ${i + 1} anzeigen">
+            <img src="${url}" alt="Foto ${i + 1}" loading="lazy" />
+          </div>`;
+      });
+      content += '</div>';
     }
 
     content += '</div>';
 
+    // ── Feature navigation (when multiple features share a coordinate) ─────
     if (featuresAtLocation.length > 1) {
       content += `
         <div class="popup-navigation">
@@ -430,29 +536,32 @@ function initMap(collectionName, styleFunction) {
     }
 
     popup.innerHTML = content;
-    overlay.setPosition(coordinates);
+    overlay.setPosition(coords);
 
-    popup.querySelectorAll(".nav-button").forEach(function (button) {
-      button.addEventListener("touchend", function (e) {
+    // Touch event listeners — attached after innerHTML is set
+    popup.querySelectorAll(".nav-button").forEach(function (btn) {
+      btn.addEventListener("touchend", function (e) {
         e.preventDefault();
         e.stopPropagation();
         if (this.dataset.direction === "prev") showPreviousFeature();
-        else showNextFeature();
+        else                                    showNextFeature();
       });
     });
 
-    const photoTrigger = popup.querySelector(".photo-trigger");
-    if (photoTrigger) {
-      photoTrigger.addEventListener("touchend", function (e) {
+    popup.querySelectorAll(".photo-trigger").forEach(function (trigger) {
+      trigger.addEventListener("touchend", function (e) {
         e.preventDefault();
         e.stopPropagation();
-        openPhotoModal('/' + this.dataset.photo);
+        const photos = JSON.parse(this.dataset.photos || '[]');
+        const index  = parseInt(this.dataset.index || '0', 10);
+        openPhotoModal(photos, index);
       });
-    }
+    });
   }
 
+  // ── Popup helpers ────────────────────────────────────────────────────────
   function clearPopup() {
-    popup.innerHTML = "";
+    popup.innerHTML = '';
     overlay.setPosition(undefined);
     selectedFeatures.clear();
   }
@@ -462,17 +571,15 @@ function initMap(collectionName, styleFunction) {
     const popupPosition = overlay.getPosition();
     if (!popupPosition) return false;
     const pixel = map.getPixelFromCoordinate(popupPosition);
-    return pixel[0] >= 0 &&
-           pixel[0] < mapSize[0] &&
-           pixel[1] >= 0 &&
-           pixel[1] < mapSize[1];
+    return pixel[0] >= 0 && pixel[0] < mapSize[0] &&
+           pixel[1] >= 0 && pixel[1] < mapSize[1];
   }
 
   map.on("moveend", function () {
     if (!isPopupVisible()) clearPopup();
   });
 
-  // ✅ FIXED: Use OpenLayers singleclick instead of manual pointer detection
+  // ── Single-click to select feature ──────────────────────────────────────
   map.on("singleclick", function (evt) {
     const feature = map.forEachFeatureAtPixel(
       evt.pixel,
@@ -489,11 +596,10 @@ function initMap(collectionName, styleFunction) {
     }
   });
 
-  // Basemap switcher
+  // ── Basemap switcher ─────────────────────────────────────────────────────
   document.getElementById("osm").addEventListener("click", function () {
     map.getLayers().setAt(0, osmLayer);
   });
-
   document.getElementById("google").addEventListener("click", function () {
     map.getLayers().setAt(0, googleLayer);
   });
