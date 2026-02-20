@@ -3,11 +3,11 @@
  * OGC API Features - Main Entry Point
  *
  * Endpoints:
- * - GET /api/                                    - Landing page
- * - GET /api/collections                         - List all collections
- * - GET /api/collections/{collectionId}          - Collection metadata
- * - GET /api/collections/{collectionId}/items    - Get features from collection
- * - GET /api/collections/{collectionId}/items/{id} - Get single feature
+ * - GET /api/                                      - Landing page
+ * - GET /api/collections                           - List all collections
+ * - GET /api/collections/{collectionId}            - Collection metadata
+ * - GET /api/collections/{collectionId}/items      - Get features from collection
+ * - GET /api/collections/{collectionId}/items/{id} - Get single feature (id = fid)
  */
 
 require_once 'config.php';
@@ -218,7 +218,10 @@ function collectionMetadata($collectionId) {
 }
 
 /**
- * Get items (features) from a collection, with embedded photos array
+ * Get items (features) from a collection, with embedded photos array.
+ *
+ * Internally joins on uuid. Exposes fid as the public "id" field so the
+ * frontend response is identical to the previous schema.
  */
 function getItems($collectionId) {
     $conn   = getDBConnection();
@@ -234,24 +237,37 @@ function getItems($collectionId) {
     $offset = isset($_GET['offset']) ? intval($_GET['offset']) : 0;
     $offset = max($offset, 0);
 
-    // Build property column list (exclude raw geometry and legacy photo columns)
+    // Columns to include as properties:
+    // - always exclude raw geometry, internal uuid, and legacy photo columns
+    // - always include uuid under the alias __uuid for internal image lookup
+    // - expose fid as "id" to keep the frontend response unchanged
     $columns         = getTableColumns($conn, $schema, $collectionId);
     $propertyColumns = array_filter($columns, function ($col) {
-        return !in_array($col, ['geom', 'photo', 'photo_hyperlink']);
+        return !in_array($col, ['geom', 'uuid', 'photo', 'photo_hyperlink']);
     });
 
-    $propertyList = implode(', ', array_map(function ($col) {
-        return '"' . $col . '"';
-    }, $propertyColumns));
+    // Build SELECT list: rename fid → id, pass everything else through as-is
+    $selectParts = [];
+    foreach ($propertyColumns as $col) {
+        if ($col === 'fid') {
+            $selectParts[] = '"fid" AS "id"';
+        } else {
+            $selectParts[] = '"' . $col . '"';
+        }
+    }
+    // Also pull uuid for the image join — aliased so it doesn't collide with
+    // any property named "uuid" that the frontend might accidentally see
+    $selectParts[] = '"uuid" AS "__uuid"';
+    $selectParts[] = 'ST_AsGeoJSON(ST_Transform(geom, 4326)) AS geometry';
+
+    $selectList = implode(', ', $selectParts);
 
     $query = sprintf(
-        "SELECT
-            %s,
-            ST_AsGeoJSON(ST_Transform(geom, 4326)) AS geometry
+        "SELECT %s
          FROM \"%s\".\"%s\"
-         ORDER BY id
+         ORDER BY fid
          LIMIT %d OFFSET %d",
-        $propertyList,
+        $selectList,
         pg_escape_string($conn, $schema),
         pg_escape_string($conn, $collectionId),
         $limit,
@@ -263,26 +279,30 @@ function getItems($collectionId) {
         sendError('Failed to query items: ' . pg_last_error($conn), 500);
     }
 
-    // Collect rows and track IDs for image lookup
-    $rows       = [];
-    $featureIds = [];
+    // Collect rows; track uuids for image lookup and fids for response ordering
+    $rows  = [];
+    $uuids = [];
 
     while ($row = pg_fetch_assoc($result)) {
-        $featureIds[] = intval($row['id']);
-        $rows[]       = $row;
+        $uuids[] = $row['__uuid'];
+        $rows[]  = $row;
     }
 
-    // Fetch all images for these features in one query
-    $imageMap = getFeatureImages($conn, $schema, $collectionId, $featureIds);
+    // Fetch all images keyed by uuid in one query
+    $imageMap = getFeatureImages($conn, $schema, $collectionId, $uuids);
 
     // Build GeoJSON features
     $features = [];
     foreach ($rows as $row) {
         $geometryJson = $row['geometry'];
-        unset($row['geometry']);
+        $rowUuid      = $row['__uuid'];
 
-        $fid               = intval($row['id']);
-        $row['photos']     = $imageMap[$fid] ?? [];   // always an array
+        // Remove internal fields before building properties
+        unset($row['geometry']);
+        unset($row['__uuid']);
+
+        // Attach photos array (empty array if none)
+        $row['photos'] = $imageMap[$rowUuid] ?? [];
 
         $features[] = [
             'type'       => 'Feature',
@@ -291,7 +311,7 @@ function getItems($collectionId) {
         ];
     }
 
-    // Total count for pagination headers
+    // Total count for pagination
     $countQuery = sprintf(
         "SELECT COUNT(*) AS count FROM \"%s\".\"%s\"",
         pg_escape_string($conn, $schema),
@@ -307,8 +327,8 @@ function getItems($collectionId) {
     $selfUrl = $baseUrl . '/collections/' . $collectionId . '/items';
 
     $response = [
-        'type'          => 'FeatureCollection',
-        'links'         => [
+        'type'           => 'FeatureCollection',
+        'links'          => [
             [
                 'href'  => $selfUrl . '?limit=' . $limit . '&offset=' . $offset,
                 'rel'   => 'self',
@@ -343,7 +363,8 @@ function getItems($collectionId) {
 }
 
 /**
- * Get a single feature by ID, with embedded photos array
+ * Get a single feature by fid (the public-facing integer id), with embedded
+ * photos array. Internally resolves uuid for the image join.
  */
 function getItem($collectionId, $itemId) {
     $conn   = getDBConnection();
@@ -355,40 +376,50 @@ function getItem($collectionId, $itemId) {
 
     $columns         = getTableColumns($conn, $schema, $collectionId);
     $propertyColumns = array_filter($columns, function ($col) {
-        return !in_array($col, ['geom', 'photo', 'photo_hyperlink']);
+        return !in_array($col, ['geom', 'uuid', 'photo', 'photo_hyperlink']);
     });
 
-    $propertyList = implode(', ', array_map(function ($col) {
-        return '"' . $col . '"';
-    }, $propertyColumns));
+    $selectParts = [];
+    foreach ($propertyColumns as $col) {
+        if ($col === 'fid') {
+            $selectParts[] = '"fid" AS "id"';
+        } else {
+            $selectParts[] = '"' . $col . '"';
+        }
+    }
+    $selectParts[] = '"uuid" AS "__uuid"';
+    $selectParts[] = 'ST_AsGeoJSON(ST_Transform(geom, 4326)) AS geometry';
 
+    $selectList = implode(', ', $selectParts);
+
+    // $itemId is the public fid
     $query = sprintf(
-        "SELECT
-            %s,
-            ST_AsGeoJSON(ST_Transform(geom, 4326)) AS geometry
+        "SELECT %s
          FROM \"%s\".\"%s\"
-         WHERE id = $1",
-        $propertyList,
+         WHERE fid = $1",
+        $selectList,
         pg_escape_string($conn, $schema),
         pg_escape_string($conn, $collectionId)
     );
 
-    $result = pg_query_params($conn, $query, [$itemId]);
+    $result = pg_query_params($conn, $query, [intval($itemId)]);
     if (!$result) {
         sendError('Failed to query item: ' . pg_last_error($conn), 500);
     }
 
     $row = pg_fetch_assoc($result);
     if (!$row) {
-        sendError("Item '$itemId' not found in collection '$collectionId'", 404);
+        sendError("Item with fid '$itemId' not found in collection '$collectionId'", 404);
     }
 
     $geometryJson = $row['geometry'];
-    unset($row['geometry']);
+    $rowUuid      = $row['__uuid'];
 
-    $fid         = intval($row['id']);
-    $imageMap    = getFeatureImages($conn, $schema, $collectionId, [$fid]);
-    $row['photos'] = $imageMap[$fid] ?? [];
+    unset($row['geometry']);
+    unset($row['__uuid']);
+
+    $imageMap      = getFeatureImages($conn, $schema, $collectionId, [$rowUuid]);
+    $row['photos'] = $imageMap[$rowUuid] ?? [];
 
     $response = [
         'type'       => 'Feature',
@@ -404,41 +435,44 @@ function getItem($collectionId, $itemId) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Fetch images for a set of feature IDs from the matching _images table.
- * Returns an array keyed by feature ID, each value an array of photo URLs.
+ * Fetch images for a set of feature UUIDs from the matching _images table.
  *
- * Example:  [ 7 => ['photos/a.jpg', 'photos/b.jpg'], 12 => ['photos/c.jpg'] ]
+ * The images tables now reference the parent via {collection}_uuid rather than
+ * the old integer {collection}_id, so we join on uuid throughout.
  *
- * If no _images table exists for this collection the function returns [].
+ * Returns: [ 'uuid-string' => ['DCIM/a.jpg', 'DCIM/b.jpg'], … ]
+ * Returns [] if no _images table exists for this collection.
  */
-function getFeatureImages($conn, $schema, $collectionId, array $featureIds) {
-    if (empty($featureIds)) {
+function getFeatureImages($conn, $schema, $collectionId, array $uuids) {
+    if (empty($uuids)) {
         return [];
     }
 
     $imagesTable = $collectionId . '_images';
-    $fkColumn    = $collectionId . '_id';
+    $fkColumn    = $collectionId . '_uuid';   // e.g. biotope_uuid, species_uuid
 
     if (!tableExists($conn, $schema, $imagesTable)) {
         return [];
     }
 
-    // Safe integer list — no user input reaches sprintf directly
-    $idList = implode(',', array_map('intval', $featureIds));
+    // Build a parameterised UUID list: $1, $2, $3, …
+    $placeholders = implode(', ', array_map(function ($i) {
+        return '$' . ($i + 1);
+    }, array_keys($uuids)));
 
     $query = sprintf(
         "SELECT \"%s\", photo
          FROM \"%s\".\"%s\"
          WHERE \"%s\" IN (%s)
-         ORDER BY datum ASC NULLS LAST, id ASC",
+         ORDER BY datum ASC NULLS LAST, fid ASC",
         pg_escape_string($conn, $fkColumn),
         pg_escape_string($conn, $schema),
         pg_escape_string($conn, $imagesTable),
         pg_escape_string($conn, $fkColumn),
-        $idList
+        $placeholders
     );
 
-    $result = pg_query($conn, $query);
+    $result = pg_query_params($conn, $query, array_values($uuids));
     if (!$result) {
         error_log("getFeatureImages failed for $schema.$imagesTable: " . pg_last_error($conn));
         return [];
@@ -446,8 +480,8 @@ function getFeatureImages($conn, $schema, $collectionId, array $featureIds) {
 
     $imageMap = [];
     while ($row = pg_fetch_assoc($result)) {
-        $fid = intval($row[$fkColumn]);
-        $imageMap[$fid][] = $row['photo'];
+        $uuid = $row[$fkColumn];
+        $imageMap[$uuid][] = $row['photo'];
     }
 
     return $imageMap;

@@ -7,7 +7,8 @@ CREATE SCHEMA IF NOT EXISTS unkenprojekt;
 
 -- Create tables
 CREATE TABLE IF NOT EXISTS unkenprojekt.biotope (
-    id SERIAL PRIMARY KEY,
+    uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    fid BIGSERIAL UNIQUE,
     huepferlinge INTEGER,
     datum DATE,
     bemerkung TEXT,
@@ -16,8 +17,8 @@ CREATE TABLE IF NOT EXISTS unkenprojekt.biotope (
 );
 
 CREATE TABLE IF NOT EXISTS unkenprojekt.species (
-    id SERIAL PRIMARY KEY,
-    name TEXT,
+    uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    fid BIGSERIAL UNIQUE,
     datum DATE,
     anzahl INTEGER,
     bemerkung TEXT,
@@ -25,8 +26,8 @@ CREATE TABLE IF NOT EXISTS unkenprojekt.species (
 );
 
 CREATE TABLE IF NOT EXISTS unkenprojekt.gewaesser (
-    id SERIAL PRIMARY KEY,
-    name TEXT,
+    uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    fid BIGSERIAL UNIQUE,
     datum DATE,
     bemerkung TEXT,
     region TEXT,
@@ -34,14 +35,16 @@ CREATE TABLE IF NOT EXISTS unkenprojekt.gewaesser (
 );
 
 CREATE TABLE IF NOT EXISTS unkenprojekt.biotope_images (
-    id SERIAL PRIMARY KEY,
+    uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    fid BIGSERIAL UNIQUE,
     biotope_id INT REFERENCES unkenprojekt.biotope(id),
     photo TEXT,
     datum TIMESTAMPTZ
 );
 
 CREATE TABLE IF NOT EXISTS unkenprojekt.species_images (
-    id SERIAL PRIMARY KEY,
+    uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    fid BIGSERIAL UNIQUE,
     species_id INT REFERENCES unkenprojekt.species(id),
     photo TEXT,
     datum TIMESTAMPTZ
