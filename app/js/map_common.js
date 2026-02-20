@@ -505,21 +505,40 @@ function initMap(collectionName, styleFunction) {
     // ── Photo thumbnail strip ──────────────────────────────────────────────
     const photos = properties.photos;
     if (Array.isArray(photos) && photos.length > 0) {
-      // Embed the full photos array as JSON so the click handler can open the
-      // gallery at whichever thumbnail the user tapped.
-      const photosAttr = JSON.stringify(photos).replace(/"/g, '&quot;');
+      const MAX_THUMBS  = 3;
+      const photosAttr  = JSON.stringify(photos).replace(/"/g, '&quot;');
+      const visibleCount = Math.min(photos.length, MAX_THUMBS);
+      const overflow     = photos.length - visibleCount;
 
       content += '<div class="photo-thumbs">';
-      photos.forEach(function (src, i) {
-        const url = src.startsWith('/') ? src : '/' + src;
-        content += `
-          <div class="photo-trigger photo-thumb"
-               data-photos="${photosAttr}"
-               data-index="${i}"
-               title="Foto ${i + 1} anzeigen">
-            <img src="${url}" alt="Foto ${i + 1}" loading="lazy" />
-          </div>`;
-      });
+
+      for (let i = 0; i < visibleCount; i++) {
+        const src  = photos[i];
+        const url  = src.startsWith('/') ? src : '/' + src;
+        const isLast = i === visibleCount - 1;
+
+        // If this is the last visible thumb AND there are hidden photos,
+        // render the overflow badge instead of a plain thumbnail.
+        if (isLast && overflow > 0) {
+          content += `
+            <div class="photo-trigger photo-thumb photo-thumb-overflow"
+                 data-photos="${photosAttr}"
+                 data-index="${i}"
+                 title="Alle ${photos.length} Fotos anzeigen">
+              <img src="${url}" alt="Foto ${i + 1}" loading="lazy" />
+              <div class="photo-overflow-badge">+${overflow}</div>
+            </div>`;
+        } else {
+          content += `
+            <div class="photo-trigger photo-thumb"
+                 data-photos="${photosAttr}"
+                 data-index="${i}"
+                 title="Foto ${i + 1} anzeigen">
+              <img src="${url}" alt="Foto ${i + 1}" loading="lazy" />
+            </div>`;
+        }
+      }
+
       content += '</div>';
     }
 

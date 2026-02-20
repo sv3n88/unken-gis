@@ -429,3 +429,23 @@ body {
   pointer-events: none; /* click goes through to the parent trigger */
   letter-spacing: 0.5px;
 }
+
+/* Overflow badge on the last visible thumbnail */
+.photo-thumb-overflow {
+  position: relative;
+}
+
+.photo-overflow-badge {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.52);
+  color: #fff;
+  font-size: 18px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  pointer-events: none; /* click goes through to the parent trigger */
+  letter-spacing: 0.5px;
+}
