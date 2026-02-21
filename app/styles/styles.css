@@ -352,6 +352,7 @@ body {
   background: #eee;
   transition: border-color 0.2s, transform 0.15s;
   flex-shrink: 0;
+  position: relative; 
 }
 
 .photo-thumb img {
@@ -449,3 +450,109 @@ body {
   pointer-events: none; /* click goes through to the parent trigger */
   letter-spacing: 0.5px;
 }
+
+/* ── Bemerkungen timeline in popup ────────────────────────────────── */
+.bemerkungen-section {
+  margin-top: 10px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+  font-size: 17px;
+}
+
+.bemerkungen-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: #f5f5f5;
+  font-weight: bold;
+  color: #333;
+  font-size: 16px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.bemerkungen-count {
+  margin-left: auto;
+  background: #1a73e8;
+  color: #fff;
+  border-radius: 12px;
+  padding: 1px 8px;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.bemerkungen-list {
+  max-height: 160px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.bemerkungen-list::-webkit-scrollbar { width: 5px; }
+.bemerkungen-list::-webkit-scrollbar-track { background: #f5f5f5; }
+.bemerkungen-list::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
+
+.bem-entry {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 6px 10px;
+  border-bottom: 1px solid #f0f0f0;
+  line-height: 1.4;
+}
+.bem-entry:last-child { border-bottom: none; }
+
+.bem-date {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: bold;
+  color: #666;
+  white-space: nowrap;
+  padding-top: 1px;
+}
+
+.bem-text {
+  color: #222;
+  font-size: 15px;
+  word-break: break-word;
+}
+
+/* ── Date badge on photo thumbnails ────────────────────────────────── */
+.thumb-date-badge {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 11px;
+  font-weight: bold;
+  text-align: center;
+  padding: 2px 3px;
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-radius: 0 0 4px 4px;
+}
+
+/* ── Date caption in photo modal ─────────────────────────────────── */
+#photo-modal-caption {
+  position: fixed;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.60);
+  color: #fff;
+  padding: 5px 18px;
+  border-radius: 20px;
+  font-size: 16px;
+  font-family: "Calibri", "Calibri Sans", sans-serif;
+  z-index: 10001;
+  pointer-events: none;
+  white-space: nowrap;
+  display: none;
+}
+
+/* ── Prop row spacing ───────────────────────────────────────────────── */
+.prop-row { margin-bottom: 2px; }
