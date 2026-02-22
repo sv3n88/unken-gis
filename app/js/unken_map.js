@@ -1,8 +1,9 @@
 function styleFunction(feature) {
     const huepferlinge = parseInt(feature.get("huepferlinge")) || 0;
-    const bemerkung = feature.get("bemerkung");
+    const bemerkungen = feature.get("bemerkungen");
+    const hasBemerkung = Array.isArray(bemerkungen) && bemerkungen.length > 0;
     let fillColor;
-    if (huepferlinge === 0 && bemerkung == null) {
+    if (huepferlinge === 0 && !hasBemerkung) {
        fillColor = "rgba(0,0,0,0)";
        stroke = "green";    // transparent
     } else if (huepferlinge === 0) {
