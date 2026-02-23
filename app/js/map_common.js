@@ -297,6 +297,10 @@ function initMap(collectionName, styleFunction) {
     popup.addEventListener(ev, function (e) { e.stopPropagation(); });
   });
 
+  popup.addEventListener('wheel', function (e) {
+    e.stopPropagation();
+  }, { passive: true });
+
   popup.addEventListener("click", function (e) {
     e.stopPropagation();
     if (e.target.classList.contains("nav-button")) {
