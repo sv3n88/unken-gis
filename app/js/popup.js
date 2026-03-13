@@ -9,14 +9,26 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 
-// ── Utility ───────────────────────────────────────────────────────────────────
+// ── DOM helper ────────────────────────────────────────────────────────────────
+//
+// createElement + className + textContent is so common that a small helper
+// reduces noise. This is not a framework — just a convenience for the
+// two-line pattern we'd otherwise repeat everywhere.
+//
+// Usage:
+//   el('span', 'bem-date', '12.05.2024')
+//   → <span class="bem-date">12.05.2024</span>
+//
+// The text argument is optional — omit it when you'll appendChild into the
+// element yourself instead of setting text directly.
 
-function escapeHtml(str) {
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  // textContent is XSS-safe: the browser treats it as plain text,
+  // never as HTML. No escapeHtml() needed here.
+  if (text !== undefined) node.textContent = text;
+  return node;
 }
 
 
@@ -49,60 +61,102 @@ function createPopupController(map, overlay) {
     const properties = feature.getProperties();
     const coords     = feature.getGeometry().getCoordinates();
 
-    let content = '<div class="popup-content">';
-    content += renderProperties(properties);
-    content += renderBemerkungen(properties.bemerkungen);
-    content += renderPhotoThumbs(properties.photos);
-    content += '</div>';
+    // Clear previous content
+    popupEl.innerHTML = '';
+
+    // Build the popup using DOM nodes instead of an HTML string.
+    // Each render function returns a DOM element (or null if there's
+    // nothing to show), and we append only what exists.
+    const content = el('div', 'popup-content');
+    content.appendChild(renderProperties(properties));
+
+    const bemerkungen = renderBemerkungen(properties.bemerkungen);
+    if (bemerkungen) content.appendChild(bemerkungen);
+
+    const thumbs = renderPhotoThumbs(properties.photos);
+    if (thumbs) content.appendChild(thumbs);
+
+    popupEl.appendChild(content);
 
     if (featuresAtLocation.length > 1) {
-      content += renderNavigation();
+      popupEl.appendChild(renderNavigation());
     }
 
-    popupEl.innerHTML = content;
     overlay.setPosition(coords);
-
-    // No attachTouchListeners() call here anymore —
-    // touch events are handled by the delegated listeners below.
   }
 
+
+  // Returns a <div class="popup-content"> fragment with one row per property.
+  //
+  // DocumentFragment is an invisible container — appending children to it
+  // doesn't touch the live DOM. We fill it, then return it to be appended
+  // once. Fewer DOM operations = better performance.
   function renderProperties(properties) {
-    let html = '';
+    const fragment = document.createDocumentFragment();
+
     for (const key in properties) {
-      if (Object.hasOwn(propertyAliases, key)) {
-        html += `<div class="prop-row"><span class="bold">${propertyAliases[key]}:</span> ${properties[key] ?? '-'}</div>`;
-      }
+      if (!Object.hasOwn(propertyAliases, key)) continue;
+
+      const row   = el('div', 'prop-row');
+      const label = el('span', 'bold', propertyAliases[key] + ': ');
+      // Using textContent for the value means database content
+      // can never be interpreted as HTML — no injection risk.
+      const value = document.createTextNode(properties[key] ?? '-');
+
+      row.appendChild(label);
+      row.appendChild(value);
+      fragment.appendChild(row);
     }
-    return html;
+
+    return fragment;
   }
 
+
+  // Returns a <div class="bemerkungen-section"> element, or null if empty.
+  //
+  // Returning null instead of an empty element lets the caller do a simple
+  // if (bemerkungen) check and skip appending entirely.
   function renderBemerkungen(bemerkungen) {
-    if (!Array.isArray(bemerkungen) || bemerkungen.length === 0) return '';
+    if (!Array.isArray(bemerkungen) || bemerkungen.length === 0) return null;
 
-    const rows = bemerkungen.map(function (b) {
-      const date = b.datum ? `<span class="bem-date">${b.datum}</span>` : '';
-      return `<div class="bem-entry">${date}<span class="bem-text">${escapeHtml(b.text)}</span></div>`;
-    }).join('');
+    const section = el('div', 'bemerkungen-section');
 
-    return `
-      <div class="bemerkungen-section">
-        <div class="bemerkungen-header">
-          <span>📋 Beobachtungen</span>
-          <span class="bemerkungen-count">${bemerkungen.length}</span>
-        </div>
-        <div class="bemerkungen-list">${rows}</div>
-      </div>`;
+    // Header row
+    const header = el('div', 'bemerkungen-header');
+    header.appendChild(el('span', null, '📋 Beobachtungen'));
+    header.appendChild(el('span', 'bemerkungen-count', String(bemerkungen.length)));
+    section.appendChild(header);
+
+    // Scrollable list
+    const list = el('div', 'bemerkungen-list');
+
+    bemerkungen.forEach(function (b) {
+      const entry = el('div', 'bem-entry');
+
+      if (b.datum) {
+        entry.appendChild(el('span', 'bem-date', b.datum));
+      }
+
+      // textContent here means even if b.text somehow contained '<script>',
+      // the browser would display it as literal text, not execute it.
+      entry.appendChild(el('span', 'bem-text', b.text));
+      list.appendChild(entry);
+    });
+
+    section.appendChild(list);
+    return section;
   }
 
+
+  // Returns a <div class="photo-thumbs"> element, or null if empty.
   function renderPhotoThumbs(photos) {
-    if (!Array.isArray(photos) || photos.length === 0) return '';
+    if (!Array.isArray(photos) || photos.length === 0) return null;
 
     const MAX_THUMBS   = 3;
-    const photosAttr   = JSON.stringify(photos).replace(/"/g, '&quot;');
     const visibleCount = Math.min(photos.length, MAX_THUMBS);
     const overflow     = photos.length - visibleCount;
 
-    let html = '<div class="photo-thumbs">';
+    const strip = el('div', 'photo-thumbs');
 
     for (let i = 0; i < visibleCount; i++) {
       const photo  = photos[i];
@@ -111,36 +165,55 @@ function createPopupController(map, overlay) {
       const url    = src.startsWith('/') ? src : '/' + src;
       const isLast = i === visibleCount - 1;
 
+      const thumb = el('div', 'photo-trigger photo-thumb');
+
+      // data attributes are how we pass data to event handlers without
+      // globals. We set them with setAttribute or the dataset API.
+      // JSON.stringify turns the photos array back into a string so we
+      // can store it and parse it back in the click handler.
+      thumb.dataset.photos = JSON.stringify(photos);
+      thumb.dataset.index  = String(i);
+      thumb.title          = datum ?? `Foto ${i + 1}`;
+
+      const img    = document.createElement('img');
+      img.src      = url;
+      img.alt      = `Foto ${i + 1}`;
+      img.loading  = 'lazy';
+      thumb.appendChild(img);
+
+      // Overflow badge on the last visible thumbnail
       if (isLast && overflow > 0) {
-        html += `
-          <div class="photo-trigger photo-thumb photo-thumb-overflow"
-               data-photos="${photosAttr}" data-index="${i}"
-               title="Alle ${photos.length} Fotos anzeigen">
-            <img src="${url}" alt="Foto ${i + 1}" loading="lazy" />
-            <div class="photo-overflow-badge">+${overflow}</div>
-          </div>`;
-      } else {
-        html += `
-          <div class="photo-trigger photo-thumb"
-               data-photos="${photosAttr}" data-index="${i}"
-               title="${datum ?? `Foto ${i + 1}`}">
-            <img src="${url}" alt="Foto ${i + 1}" loading="lazy" />
-            ${datum ? `<div class="thumb-date-badge">${datum}</div>` : ''}
-          </div>`;
+        thumb.classList.add('photo-thumb-overflow');
+        thumb.title = `Alle ${photos.length} Fotos anzeigen`;
+
+        const badge = el('div', 'photo-overflow-badge', `+${overflow}`);
+        thumb.appendChild(badge);
       }
+
+      // Date badge at the bottom of the thumbnail
+      if (datum) {
+        thumb.appendChild(el('div', 'thumb-date-badge', datum));
+      }
+
+      strip.appendChild(thumb);
     }
 
-    return html + '</div>';
+    return strip;
   }
 
+
+  // Returns the prev/next navigation bar element.
+  // This is the one place we still use innerHTML — the arrow characters
+  // are static trusted strings, not user data, so it's safe.
   function renderNavigation() {
-    return `
-      <div class="popup-navigation">
-        <button class="nav-button" data-direction="prev">&lt;</button>
-        <span>${currentFeatureIndex + 1} von ${featuresAtLocation.length}</span>
-        <button class="nav-button" data-direction="next">&gt;</button>
-      </div>`;
+    const nav = el('div', 'popup-navigation');
+    nav.innerHTML = `
+      <button class="nav-button" data-direction="prev">&lt;</button>
+      <span>${currentFeatureIndex + 1} von ${featuresAtLocation.length}</span>
+      <button class="nav-button" data-direction="next">&gt;</button>`;
+    return nav;
   }
+
 
   function showPreviousFeature() {
     currentFeatureIndex = (currentFeatureIndex - 1 + featuresAtLocation.length) % featuresAtLocation.length;
@@ -155,27 +228,14 @@ function createPopupController(map, overlay) {
 
   // ── Event listeners ─────────────────────────────────────────────────────
   //
-  // All listeners are attached exactly once here, when createPopupController()
-  // runs. They never need to be re-attached when the popup content changes,
-  // because they listen on popupEl (the permanent container) rather than
-  // on the buttons/thumbnails inside it (which get recreated on every update).
-  //
-  // This is event delegation: let events bubble up from their target
-  // to a stable ancestor, then inspect e.target to decide what to do.
+  // Attached once. Use event delegation so they work regardless of
+  // what's currently inside popupEl. See Step 2 for the full explanation.
 
-  // Stop map interactions firing through the popup
   ['pointerdown', 'pointerup', 'touchstart', 'touchmove', 'touchend'].forEach(function (ev) {
     popupEl.addEventListener(ev, function (e) { e.stopPropagation(); });
   });
 
-  // Stop map zoom when scrolling the bemerkungen list
   popupEl.addEventListener('wheel', function (e) { e.stopPropagation(); }, { passive: true });
-
-  // ── Click delegation ──────────────────────────────────────────────────
-  //
-  // One listener handles all clicks inside the popup, for all time.
-  // When a nav button or photo trigger is clicked, the event bubbles up
-  // from that element to popupEl, where we catch it.
 
   popupEl.addEventListener('click', function (e) {
     e.stopPropagation();
@@ -195,18 +255,7 @@ function createPopupController(map, overlay) {
     }
   });
 
-  // ── Touch delegation ──────────────────────────────────────────────────
-  //
-  // Same pattern as click delegation above, but for touchend.
-  // We need both because on mobile, click fires ~300ms after touchend
-  // (a legacy browser delay), so touch-heavy UIs handle touchend directly
-  // for instant response.
-  //
-  // e.preventDefault() here stops the browser from also firing a click
-  // event after the touch, which would trigger the handler twice.
-
   popupEl.addEventListener('touchend', function (e) {
-
     if (e.target.classList.contains('nav-button')) {
       e.preventDefault();
       e.stopPropagation();
@@ -215,8 +264,6 @@ function createPopupController(map, overlay) {
       return;
     }
 
-    // e.target might be the <img> inside .photo-trigger, not the div itself.
-    // closest() walks up the DOM tree until it finds a matching ancestor.
     const trigger = e.target.closest('.photo-trigger');
     if (trigger) {
       e.preventDefault();
@@ -226,7 +273,6 @@ function createPopupController(map, overlay) {
         parseInt(trigger.dataset.index || '0', 10)
       );
     }
-
   });
 
 
