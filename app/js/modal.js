@@ -1,317 +1,362 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // modal.js
 //
-// Responsible for exactly one thing: the photo modal overlay.
-// This includes opening/closing it, zoom/pan/rotate, and gallery navigation.
+// The PhotoModal class manages the photo overlay: opening, closing,
+// gallery navigation, zoom, pan, and rotation.
 //
-// Nothing in here knows about maps, popups, or features.
-// It only needs the DOM elements defined in the HTML (photo-modal, etc.)
-// and receives photo data from outside via openPhotoModal().
+// Usage (at the bottom of this file):
+//   const photoModal = new PhotoModal();
+//
+// Public API used by popup.js and the HTML buttons:
+//   photoModal.open(photos, startIndex)
+//   photoModal.close()
+//   photoModal.next()
+//   photoModal.prev()
+//   photoModal.zoom(direction)   direction: 1=in, -1=out, 0=reset
+//   photoModal.rotate()
 // ─────────────────────────────────────────────────────────────────────────────
 
+class PhotoModal {
 
-// ── State ─────────────────────────────────────────────────────────────────────
-//
-// This plain object holds all the runtime state the modal needs.
-// It lives at the top of the file so it's easy to find and understand
-// what data this module works with.
-//
-// We'll turn this into a class in Step 4 — for now a plain object is fine.
+  // ── Private fields ──────────────────────────────────────────────────────
+  //
+  // The # prefix makes these truly private — readable and writable only
+  // from inside this class. Trying to access photoModal.#scale from
+  // outside this file throws a SyntaxError.
+  //
+  // This is stricter than the old plain object (photoModal.scale = 99
+  // from anywhere was perfectly legal before) and stricter than the
+  // factory function closure (which was private by convention, not enforced).
 
-const photoModal = {
   // Zoom & pan
-  scale:    1,
-  minScale: 0.5,
-  maxScale: 8,
-  tx: 0,   // horizontal translation in px
-  ty: 0,   // vertical translation in px
-  rotation: 0,
+  #scale    = 1;
+  #minScale = 0.5;
+  #maxScale = 8;
+  #tx       = 0;   // horizontal translation in px
+  #ty       = 0;   // vertical translation in px
+  #rotation = 0;
 
-  // Touch pinch state
-  lastPinchDist: null,
+  // Touch pinch
+  #lastPinchDist = null;
 
-  // Mouse/touch drag state
-  dragging:    false,
-  dragStartX:  0,
-  dragStartY:  0,
-  dragStartTx: 0,
-  dragStartTy: 0,
+  // Mouse / touch drag
+  #dragging    = false;
+  #dragStartX  = 0;
+  #dragStartY  = 0;
+  #dragStartTx = 0;
+  #dragStartTy = 0;
 
-  // Gallery: photos is an array of {src, datum} objects
-  photos:       [],
-  currentIndex: 0,
-};
+  // Gallery — photos is [{src, datum}, …]
+  #photos       = [];
+  #currentIndex = 0;
 
-
-// ── Private helpers ───────────────────────────────────────────────────────────
-//
-// These functions are only used inside this file.
-// In Step 4, when we use a class, these become private methods.
-// For now, the naming convention _underscore signals "internal, don't call me
-// from outside".
-
-function _applyTransform() {
-  const inner = document.getElementById('photo-modal-box-inner');
-  if (!inner) return;
-  inner.style.transform =
-    `translate(calc(-50% + ${photoModal.tx}px), calc(-50% + ${photoModal.ty}px)) ` +
-    `scale(${photoModal.scale}) rotate(${photoModal.rotation}deg)`;
-}
-
-function _clampTranslation() {
-  const inner    = document.getElementById('photo-modal-box-inner');
-  const viewport = document.getElementById('photo-modal-viewport');
-  if (!inner || !viewport) return;
-  const img = inner.querySelector('img');
-  if (!img) return;
-  const maxTx = Math.max(0, (img.offsetWidth  * photoModal.scale - viewport.clientWidth)  / 2);
-  const maxTy = Math.max(0, (img.offsetHeight * photoModal.scale - viewport.clientHeight) / 2);
-  photoModal.tx = Math.max(-maxTx, Math.min(maxTx, photoModal.tx));
-  photoModal.ty = Math.max(-maxTy, Math.min(maxTy, photoModal.ty));
-}
-
-function _resetView() {
-  photoModal.scale    = 1;
-  photoModal.tx       = 0;
-  photoModal.ty       = 0;
-  photoModal.rotation = 0;
-}
-
-function _updateGalleryUI() {
-  const counter = document.getElementById('photo-gallery-counter');
-  const prev    = document.getElementById('photo-gallery-prev');
-  const next    = document.getElementById('photo-gallery-next');
-  const total   = photoModal.photos.length;
-
-  if (counter) counter.textContent = total > 1 ? `${photoModal.currentIndex + 1} / ${total}` : '';
-
-  const showNav = total > 1;
-  if (prev) prev.style.display = showNav ? 'flex' : 'none';
-  if (next) next.style.display = showNav ? 'flex' : 'none';
-}
-
-function _updatePhotoCaption() {
-  const caption = document.getElementById('photo-modal-caption');
-  if (!caption) return;
-  const current = photoModal.photos[photoModal.currentIndex];
-  const datum   = current && typeof current === 'object' ? current.datum : null;
-  caption.textContent   = datum ? `📅 ${datum}` : '';
-  caption.style.display = datum ? 'block' : 'none';
-}
-
-function _loadPhotoAtIndex(index) {
-  const box = document.getElementById('photo-modal-box-inner');
-  if (!box) return;
-
-  _resetView();
-  box.innerHTML = '<div class="photo-modal-loading">⏳ Wird geladen…</div>';
-  _applyTransform();
-
-  const photo = photoModal.photos[index];
-  const src   = typeof photo === 'object' ? photo.src : photo;
-  const url   = src.startsWith('/') ? src : '/' + src;
-
-  const img     = new Image();
-  img.alt       = 'Foto';
-  img.draggable = false;
-
-  img.onload  = function () { box.innerHTML = ''; box.appendChild(img); _applyTransform(); };
-  img.onerror = function () { box.innerHTML = '<div class="photo-modal-error">⚠️ Foto konnte nicht geladen werden.</div>'; };
-
-  img.src = url;
-  _updateGalleryUI();
-  _updatePhotoCaption();
-}
+  // DOM element references — set in constructor
+  #modal    = null;
+  #viewport = null;
+  #box      = null;
+  #caption  = null;
+  #counter  = null;
+  #prevBtn  = null;
+  #nextBtn  = null;
 
 
-// ── Public API ────────────────────────────────────────────────────────────────
-//
-// These are the only functions other files should call.
-// popup.js calls openPhotoModal(). The HTML buttons call the others directly.
-// Having a clear public API makes it easy to see what this module "exports".
+  // ── Constructor ─────────────────────────────────────────────────────────
+  //
+  // Runs once when you write: const photoModal = new PhotoModal()
+  // We grab DOM references here so every method can use them via this.#modal
+  // without calling getElementById every time.
 
-function openPhotoModal(photos, startIndex = 0) {
-  const modal = document.getElementById('photo-modal');
-  if (!modal) return;
-  photoModal.photos       = Array.isArray(photos) ? photos : [photos];
-  photoModal.currentIndex = Math.max(0, Math.min(startIndex, photoModal.photos.length - 1));
-  modal.classList.add('active');
-  _loadPhotoAtIndex(photoModal.currentIndex);
-}
+  constructor() {
+    this.#modal    = document.getElementById('photo-modal');
+    this.#viewport = document.getElementById('photo-modal-viewport');
+    this.#box      = document.getElementById('photo-modal-box-inner');
+    this.#caption  = document.getElementById('photo-modal-caption');
+    this.#counter  = document.getElementById('photo-gallery-counter');
+    this.#prevBtn  = document.getElementById('photo-gallery-prev');
+    this.#nextBtn  = document.getElementById('photo-gallery-next');
 
-function closePhotoModal() {
-  const modal = document.getElementById('photo-modal');
-  if (modal) modal.classList.remove('active');
-  const box = document.getElementById('photo-modal-box-inner');
-  if (box) box.innerHTML = '';
-  photoModal.photos = [];
-}
-
-function galleryPrev() {
-  if (photoModal.photos.length < 2) return;
-  photoModal.currentIndex = (photoModal.currentIndex - 1 + photoModal.photos.length) % photoModal.photos.length;
-  _loadPhotoAtIndex(photoModal.currentIndex);
-}
-
-function galleryNext() {
-  if (photoModal.photos.length < 2) return;
-  photoModal.currentIndex = (photoModal.currentIndex + 1) % photoModal.photos.length;
-  _loadPhotoAtIndex(photoModal.currentIndex);
-}
-
-function zoomPhoto(direction) {
-  if (direction === 0) {
-    _resetView();
-  } else {
-    photoModal.scale = Math.min(photoModal.maxScale, Math.max(photoModal.minScale, photoModal.scale + direction * 0.4));
-    _clampTranslation();
+    this.#attachListeners();
   }
-  _applyTransform();
-}
-
-function rotatePhoto() {
-  photoModal.rotation = (photoModal.rotation + 90) % 360;
-  photoModal.tx = 0;
-  photoModal.ty = 0;
-  _applyTransform();
-}
 
 
-// ── Event listeners ───────────────────────────────────────────────────────────
-//
-// All listeners that belong to the modal are set up here, once, on page load.
-// DOMContentLoaded fires when the HTML is fully parsed, so getElementById
-// calls are safe to make here.
+  // ── Public methods ───────────────────────────────────────────────────────
+  //
+  // These are the only methods popup.js and the HTML buttons should call.
+  // No # prefix = public.
 
-document.addEventListener('DOMContentLoaded', function () {
-  const modal    = document.getElementById('photo-modal');
-  const viewport = document.getElementById('photo-modal-viewport');
-  if (!modal || !viewport) return;
+  open(photos, startIndex = 0) {
+    this.#photos       = Array.isArray(photos) ? photos : [photos];
+    this.#currentIndex = Math.max(0, Math.min(startIndex, this.#photos.length - 1));
+    this.#modal.classList.add('active');
+    this.#loadPhoto(this.#currentIndex);
+  }
 
-  // Close on backdrop click
-  modal.addEventListener('click', function (e) {
-    if (e.target === modal) closePhotoModal();
-  });
+  close() {
+    this.#modal.classList.remove('active');
+    this.#box.innerHTML = '';
+    this.#photos = [];
+  }
 
-  // Keyboard shortcuts
-  document.addEventListener('keydown', function (e) {
-    if (!modal.classList.contains('active')) return;
-    if (e.key === 'Escape')             closePhotoModal();
-    if (e.key === '+' || e.key === '=') zoomPhoto(1);
-    if (e.key === '-')                  zoomPhoto(-1);
-    if (e.key === '0')                  zoomPhoto(0);
-    if (e.key === 'r' || e.key === 'R') rotatePhoto();
-    if (e.key === 'ArrowLeft')          galleryPrev();
-    if (e.key === 'ArrowRight')         galleryNext();
-  });
+  next() {
+    if (this.#photos.length < 2) return;
+    this.#currentIndex = (this.#currentIndex + 1) % this.#photos.length;
+    this.#loadPhoto(this.#currentIndex);
+  }
 
-  // Mouse wheel zoom (toward cursor)
-  viewport.addEventListener('wheel', function (e) {
-    e.preventDefault();
-    const dir      = e.deltaY < 0 ? 1 : -1;
-    const rect     = viewport.getBoundingClientRect();
-    const cx       = e.clientX - rect.left - rect.width  / 2;
-    const cy       = e.clientY - rect.top  - rect.height / 2;
-    const oldScale = photoModal.scale;
-    photoModal.scale = Math.min(photoModal.maxScale, Math.max(photoModal.minScale, photoModal.scale + dir * 0.15));
-    const delta   = photoModal.scale / oldScale;
-    photoModal.tx = cx + (photoModal.tx - cx) * delta;
-    photoModal.ty = cy + (photoModal.ty - cy) * delta;
-    _clampTranslation();
-    _applyTransform();
-  }, { passive: false });
+  prev() {
+    if (this.#photos.length < 2) return;
+    this.#currentIndex = (this.#currentIndex - 1 + this.#photos.length) % this.#photos.length;
+    this.#loadPhoto(this.#currentIndex);
+  }
 
-  // Mouse drag to pan
-  viewport.addEventListener('mousedown', function (e) {
-    if (e.button !== 0) return;
-    photoModal.dragging    = true;
-    photoModal.dragStartX  = e.clientX;
-    photoModal.dragStartY  = e.clientY;
-    photoModal.dragStartTx = photoModal.tx;
-    photoModal.dragStartTy = photoModal.ty;
-    viewport.classList.add('dragging');
-    e.preventDefault();
-  });
-
-  window.addEventListener('mousemove', function (e) {
-    if (!photoModal.dragging) return;
-    photoModal.tx = photoModal.dragStartTx + (e.clientX - photoModal.dragStartX);
-    photoModal.ty = photoModal.dragStartTy + (e.clientY - photoModal.dragStartY);
-    _clampTranslation();
-    _applyTransform();
-  });
-
-  window.addEventListener('mouseup', function () {
-    if (!photoModal.dragging) return;
-    photoModal.dragging = false;
-    viewport.classList.remove('dragging');
-  });
-
-  // Touch: pinch-to-zoom + drag
-  let isPinching = false;
-
-  viewport.addEventListener('touchstart', function (e) {
-    if (e.touches.length === 2) {
-      isPinching = true; photoModal.dragging = false;
-      const dx = e.touches[0].clientX - e.touches[1].clientX;
-      const dy = e.touches[0].clientY - e.touches[1].clientY;
-      photoModal.lastPinchDist = Math.sqrt(dx * dx + dy * dy);
-    } else if (e.touches.length === 1 && !isPinching) {
-      photoModal.dragging    = true;
-      photoModal.dragStartX  = e.touches[0].clientX;
-      photoModal.dragStartY  = e.touches[0].clientY;
-      photoModal.dragStartTx = photoModal.tx;
-      photoModal.dragStartTy = photoModal.ty;
+  // direction: 1 = zoom in, -1 = zoom out, 0 = reset
+  zoom(direction) {
+    if (direction === 0) {
+      this.#resetView();
+    } else {
+      this.#scale = Math.min(this.#maxScale, Math.max(this.#minScale, this.#scale + direction * 0.4));
+      this.#clampTranslation();
     }
-  }, { passive: true });
+    this.#applyTransform();
+  }
 
-  viewport.addEventListener('touchmove', function (e) {
-    e.preventDefault();
-    if (e.touches.length === 2) {
-      const dx   = e.touches[0].clientX - e.touches[1].clientX;
-      const dy   = e.touches[0].clientY - e.touches[1].clientY;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (photoModal.lastPinchDist !== null) {
-        photoModal.scale = Math.min(photoModal.maxScale, Math.max(photoModal.minScale, photoModal.scale * (dist / photoModal.lastPinchDist)));
-        _clampTranslation();
-        _applyTransform();
+  rotate() {
+    this.#rotation = (this.#rotation + 90) % 360;
+    this.#tx = 0;
+    this.#ty = 0;
+    this.#applyTransform();
+  }
+
+
+  // ── Private methods ──────────────────────────────────────────────────────
+  //
+  // Implementation details. Callers outside this class don't need to
+  // know these exist.
+
+  #resetView() {
+    this.#scale    = 1;
+    this.#tx       = 0;
+    this.#ty       = 0;
+    this.#rotation = 0;
+  }
+
+  #applyTransform() {
+    this.#box.style.transform =
+      `translate(calc(-50% + ${this.#tx}px), calc(-50% + ${this.#ty}px)) ` +
+      `scale(${this.#scale}) rotate(${this.#rotation}deg)`;
+  }
+
+  #clampTranslation() {
+    const img = this.#box.querySelector('img');
+    if (!img) return;
+    const maxTx = Math.max(0, (img.offsetWidth  * this.#scale - this.#viewport.clientWidth)  / 2);
+    const maxTy = Math.max(0, (img.offsetHeight * this.#scale - this.#viewport.clientHeight) / 2);
+    this.#tx = Math.max(-maxTx, Math.min(maxTx, this.#tx));
+    this.#ty = Math.max(-maxTy, Math.min(maxTy, this.#ty));
+  }
+
+  #updateGalleryUI() {
+    const total = this.#photos.length;
+    if (this.#counter) {
+      this.#counter.textContent = total > 1 ? `${this.#currentIndex + 1} / ${total}` : '';
+    }
+    const showNav = total > 1;
+    if (this.#prevBtn) this.#prevBtn.style.display = showNav ? 'flex' : 'none';
+    if (this.#nextBtn) this.#nextBtn.style.display = showNav ? 'flex' : 'none';
+  }
+
+  #updateCaption() {
+    if (!this.#caption) return;
+    const current = this.#photos[this.#currentIndex];
+    const datum   = current && typeof current === 'object' ? current.datum : null;
+    this.#caption.textContent   = datum ? `📅 ${datum}` : '';
+    this.#caption.style.display = datum ? 'block' : 'none';
+  }
+
+  #loadPhoto(index) {
+    this.#resetView();
+    this.#box.innerHTML = '<div class="photo-modal-loading">⏳ Wird geladen…</div>';
+    this.#applyTransform();
+
+    const photo = this.#photos[index];
+    const src   = typeof photo === 'object' ? photo.src : photo;
+    const url   = src.startsWith('/') ? src : '/' + src;
+
+    const img     = new Image();
+    img.alt       = 'Foto';
+    img.draggable = false;
+
+    // Arrow functions here so "this" stays bound to the PhotoModal instance.
+    // If we used function() { ... } instead, "this" inside would be the img
+    // element (the thing that fired the event), not the PhotoModal.
+    img.onload  = () => { this.#box.innerHTML = ''; this.#box.appendChild(img); this.#applyTransform(); };
+    img.onerror = () => { this.#box.innerHTML = '<div class="photo-modal-error">⚠️ Foto konnte nicht geladen werden.</div>'; };
+
+    img.src = url;
+    this.#updateGalleryUI();
+    this.#updateCaption();
+  }
+
+
+  // ── Event listeners ──────────────────────────────────────────────────────
+  //
+  // Called once from the constructor. All arrow functions so "this" always
+  // refers to the PhotoModal instance, never the element that fired the event.
+
+  #attachListeners() {
+    // Close on backdrop click
+    this.#modal.addEventListener('click', (e) => {
+      if (e.target === this.#modal) this.close();
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      if (!this.#modal.classList.contains('active')) return;
+      if (e.key === 'Escape')             this.close();
+      if (e.key === '+' || e.key === '=') this.zoom(1);
+      if (e.key === '-')                  this.zoom(-1);
+      if (e.key === '0')                  this.zoom(0);
+      if (e.key === 'r' || e.key === 'R') this.rotate();
+      if (e.key === 'ArrowLeft')          this.prev();
+      if (e.key === 'ArrowRight')         this.next();
+    });
+
+    // Mouse wheel zoom toward cursor
+    this.#viewport.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const dir      = e.deltaY < 0 ? 1 : -1;
+      const rect     = this.#viewport.getBoundingClientRect();
+      const cx       = e.clientX - rect.left - rect.width  / 2;
+      const cy       = e.clientY - rect.top  - rect.height / 2;
+      const oldScale = this.#scale;
+      this.#scale = Math.min(this.#maxScale, Math.max(this.#minScale, this.#scale + dir * 0.15));
+      const delta  = this.#scale / oldScale;
+      this.#tx     = cx + (this.#tx - cx) * delta;
+      this.#ty     = cy + (this.#ty - cy) * delta;
+      this.#clampTranslation();
+      this.#applyTransform();
+    }, { passive: false });
+
+    // Mouse drag to pan
+    this.#viewport.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      this.#dragging    = true;
+      this.#dragStartX  = e.clientX;
+      this.#dragStartY  = e.clientY;
+      this.#dragStartTx = this.#tx;
+      this.#dragStartTy = this.#ty;
+      this.#viewport.classList.add('dragging');
+      e.preventDefault();
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!this.#dragging) return;
+      this.#tx = this.#dragStartTx + (e.clientX - this.#dragStartX);
+      this.#ty = this.#dragStartTy + (e.clientY - this.#dragStartY);
+      this.#clampTranslation();
+      this.#applyTransform();
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (!this.#dragging) return;
+      this.#dragging = false;
+      this.#viewport.classList.remove('dragging');
+    });
+
+    // Touch: pinch-to-zoom + drag
+    let isPinching = false;
+
+    this.#viewport.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 2) {
+        isPinching        = true;
+        this.#dragging    = false;
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        this.#lastPinchDist = Math.sqrt(dx * dx + dy * dy);
+      } else if (e.touches.length === 1 && !isPinching) {
+        this.#dragging    = true;
+        this.#dragStartX  = e.touches[0].clientX;
+        this.#dragStartY  = e.touches[0].clientY;
+        this.#dragStartTx = this.#tx;
+        this.#dragStartTy = this.#ty;
       }
-      photoModal.lastPinchDist = dist;
-    } else if (e.touches.length === 1 && photoModal.dragging) {
-      photoModal.tx = photoModal.dragStartTx + (e.touches[0].clientX - photoModal.dragStartX);
-      photoModal.ty = photoModal.dragStartTy + (e.touches[0].clientY - photoModal.dragStartY);
-      _clampTranslation();
-      _applyTransform();
+    }, { passive: true });
+
+    this.#viewport.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      if (e.touches.length === 2) {
+        const dx   = e.touches[0].clientX - e.touches[1].clientX;
+        const dy   = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (this.#lastPinchDist !== null) {
+          this.#scale = Math.min(this.#maxScale, Math.max(this.#minScale, this.#scale * (dist / this.#lastPinchDist)));
+          this.#clampTranslation();
+          this.#applyTransform();
+        }
+        this.#lastPinchDist = dist;
+      } else if (e.touches.length === 1 && this.#dragging) {
+        this.#tx = this.#dragStartTx + (e.touches[0].clientX - this.#dragStartX);
+        this.#ty = this.#dragStartTy + (e.touches[0].clientY - this.#dragStartY);
+        this.#clampTranslation();
+        this.#applyTransform();
+      }
+    }, { passive: false });
+
+    this.#viewport.addEventListener('touchend', (e) => {
+      if (e.touches.length < 2) {
+        this.#lastPinchDist = null;
+        if (e.touches.length === 0) { isPinching = false; this.#dragging = false; }
+        else if (isPinching)        { this.#dragging = false; }
+      }
+    }, { passive: true });
+
+    // Double-tap / double-click to reset zoom
+    let lastTap = 0;
+    this.#viewport.addEventListener('touchend', (e) => {
+      if (isPinching) return;
+      const now = Date.now();
+      if (now - lastTap < 300) this.zoom(0);
+      lastTap = now;
+    }, { passive: true });
+
+    this.#viewport.addEventListener('dblclick', () => this.zoom(0));
+
+    // Gallery arrow buttons
+    this.#modal.addEventListener('click', (e) => {
+      if (e.target.closest('#photo-gallery-prev')) this.prev();
+      if (e.target.closest('#photo-gallery-next')) this.next();
+    });
+
+    if (this.#prevBtn) {
+      this.#prevBtn.addEventListener('touchend', (e) => {
+        e.preventDefault(); e.stopPropagation(); this.prev();
+      });
     }
-  }, { passive: false });
-
-  viewport.addEventListener('touchend', function (e) {
-    if (e.touches.length < 2) {
-      photoModal.lastPinchDist = null;
-      if (e.touches.length === 0) { isPinching = false; photoModal.dragging = false; }
-      else if (isPinching)        { photoModal.dragging = false; }
+    if (this.#nextBtn) {
+      this.#nextBtn.addEventListener('touchend', (e) => {
+        e.preventDefault(); e.stopPropagation(); this.next();
+      });
     }
-  }, { passive: true });
+  }
+}
 
-  // Double-tap / double-click to reset zoom
-  let lastTap = 0;
-  viewport.addEventListener('touchend', function (e) {
-    if (isPinching) return;
-    const now = Date.now();
-    if (now - lastTap < 300) zoomPhoto(0);
-    lastTap = now;
-  }, { passive: true });
 
-  viewport.addEventListener('dblclick', function () { zoomPhoto(0); });
+// ── Single instance ───────────────────────────────────────────────────────────
+//
+// We only ever need one modal on the page, so we create one instance here.
+// popup.js and the HTML buttons call methods on this object.
+//
+// The HTML buttons still call e.g. zoomPhoto(1) — we add small wrapper
+// functions below so the HTML doesn't need to change.
 
-  // Gallery arrow buttons
-  modal.addEventListener('click', function (e) {
-    if (e.target.closest('#photo-gallery-prev')) galleryPrev();
-    if (e.target.closest('#photo-gallery-next')) galleryNext();
-  });
+const photoModal = new PhotoModal();
 
-  const prevBtn = document.getElementById('photo-gallery-prev');
-  const nextBtn = document.getElementById('photo-gallery-next');
-  if (prevBtn) prevBtn.addEventListener('touchend', function (e) { e.preventDefault(); e.stopPropagation(); galleryPrev(); });
-  if (nextBtn) nextBtn.addEventListener('touchend', function (e) { e.preventDefault(); e.stopPropagation(); galleryNext(); });
-});
+// Wrappers so the HTML onclick attributes keep working unchanged:
+//   onclick="closePhotoModal()"
+//   onclick="zoomPhoto(-1)"
+//   onclick="rotatePhoto()"
+//   openPhotoModal(photos, index) called from popup.js
+function openPhotoModal(photos, startIndex = 0) { photoModal.open(photos, startIndex); }
+function closePhotoModal()                        { photoModal.close(); }
+function zoomPhoto(direction)                     { photoModal.zoom(direction); }
+function rotatePhoto()                            { photoModal.rotate(); }

@@ -1,49 +1,81 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // popup.js
 //
-// Responsible for rendering the feature popup and managing which feature
-// is currently shown when multiple features share a coordinate.
+// The PopupController class manages the feature popup: rendering properties,
+// the bemerkungen timeline, photo thumbnails, and multi-feature navigation.
 //
-// Depends on: modal.js (calls openPhotoModal)
-// Used by:    map.js   (calls createPopupController)
+// Usage in map.js:
+//   const popup = new PopupController(map, overlay);
+//
+// Public API used by map.js:
+//   popup.handleFeatureClick(feature)
+//   popup.clear()
+//   popup.isVisible()
+//
+// Depends on: modal.js (calls openPhotoModal which delegates to PhotoModal)
 // ─────────────────────────────────────────────────────────────────────────────
 
 
 // ── DOM helper ────────────────────────────────────────────────────────────────
 //
-// createElement + className + textContent is so common that a small helper
-// reduces noise. This is not a framework — just a convenience for the
-// two-line pattern we'd otherwise repeat everywhere.
-//
-// Usage:
-//   el('span', 'bem-date', '12.05.2024')
-//   → <span class="bem-date">12.05.2024</span>
-//
-// The text argument is optional — omit it when you'll appendChild into the
-// element yourself instead of setting text directly.
+// Same helper as before — lives outside the class because it's a pure
+// utility with no connection to popup state. It doesn't need "this".
+// Pure functions that don't depend on any object state should stay
+// outside classes, not be forced in as static methods.
 
 function el(tag, className, text) {
   const node = document.createElement(tag);
   if (className) node.className = className;
-  // textContent is XSS-safe: the browser treats it as plain text,
-  // never as HTML. No escapeHtml() needed here.
   if (text !== undefined) node.textContent = text;
   return node;
 }
 
 
-// ── Factory function ──────────────────────────────────────────────────────────
+// ── PopupController class ─────────────────────────────────────────────────────
+//
+// Compare this to the old factory function:
+//
+//   BEFORE (factory function)        AFTER (class)
+//   ─────────────────────────────    ──────────────────────────────
+//   function createPopupController   class PopupController
+//   let featuresAtLocation = []      #featuresAtLocation = []
+//   function updatePopup() {}        #updatePopup() {}
+//   return { handleFeatureClick }    handleFeatureClick() {}
+//
+// The behaviour is identical. The class syntax is just more explicit
+// about what is state (#fields), what is private (#methods), and
+// what is public (methods without #).
 
-function createPopupController(map, overlay) {
+class PopupController {
 
-  // ── Private state ───────────────────────────────────────────────────────
+  // ── Private fields ────────────────────────────────────────────────────
+  //
+  // Declared at the top of the class so you can see all the state
+  // this object manages in one place — before reading any methods.
+  //
+  // In the factory function these were "let" variables closed over
+  // by the inner functions. Here they are # fields closed over by
+  // the class. The privacy guarantee is the same, but # is enforced
+  // by the language rather than by convention.
 
-  const popupEl = document.getElementById('popup');
+  // DOM reference — grabbed once in constructor, reused everywhere
+  #popupEl = null;
 
-  let featuresAtLocation  = [];
-  let currentFeatureIndex = 0;
+  // The OL map and overlay are passed in from map.js.
+  // We store them as fields so every method can use them via this.#map
+  // without needing them passed as parameters each time.
+  #map     = null;
+  #overlay = null;
 
-  const propertyAliases = {
+  // Which features exist at the clicked coordinate (can be >1 if overlapping)
+  #featuresAtLocation  = [];
+  #currentFeatureIndex = 0;
+
+  // Maps GeoJSON property keys → human-readable labels.
+  // Declared as a field rather than a local variable inside a method
+  // because it's configuration that belongs to the object, not to
+  // a single method call.
+  #propertyAliases = {
     id:           'ID',
     huepferlinge: 'Anzahl Hüpferlinge',
     region:       'Region',
@@ -52,55 +84,108 @@ function createPopupController(map, overlay) {
   };
 
 
-  // ── Private functions ───────────────────────────────────────────────────
+  // ── Constructor ───────────────────────────────────────────────────────
+  //
+  // Receives the two dependencies from map.js and stores them as fields.
+  // Then grabs the popup DOM element and attaches all event listeners.
+  //
+  // "Dependency injection" — map.js hands in what PopupController needs
+  // rather than PopupController reaching out and grabbing globals itself.
+  // This makes the class easier to understand in isolation: you can see
+  // exactly what it needs just by reading the constructor signature.
 
-  function updatePopup() {
-    if (featuresAtLocation.length === 0) return;
+  constructor(map, overlay) {
+    this.#map     = map;
+    this.#overlay = overlay;
+    this.#popupEl = document.getElementById('popup');
 
-    const feature    = featuresAtLocation[currentFeatureIndex];
-    const properties = feature.getProperties();
-    const coords     = feature.getGeometry().getCoordinates();
-
-    // Clear previous content
-    popupEl.innerHTML = '';
-
-    // Build the popup using DOM nodes instead of an HTML string.
-    // Each render function returns a DOM element (or null if there's
-    // nothing to show), and we append only what exists.
-    const content = el('div', 'popup-content');
-    content.appendChild(renderProperties(properties));
-
-    const bemerkungen = renderBemerkungen(properties.bemerkungen);
-    if (bemerkungen) content.appendChild(bemerkungen);
-
-    const thumbs = renderPhotoThumbs(properties.photos);
-    if (thumbs) content.appendChild(thumbs);
-
-    popupEl.appendChild(content);
-
-    if (featuresAtLocation.length > 1) {
-      popupEl.appendChild(renderNavigation());
-    }
-
-    overlay.setPosition(coords);
+    this.#attachListeners();
   }
 
 
-  // Returns a <div class="popup-content"> fragment with one row per property.
+  // ── Public methods ────────────────────────────────────────────────────
   //
-  // DocumentFragment is an invisible container — appending children to it
-  // doesn't touch the live DOM. We fill it, then return it to be appended
-  // once. Fewer DOM operations = better performance.
-  function renderProperties(properties) {
+  // These three are the entire public API — the only things map.js calls.
+  // Everything else in this class is private.
+
+  // Called by map.js when the user clicks a feature on the map.
+  handleFeatureClick(clickedFeature) {
+    const coord = clickedFeature.getGeometry().getCoordinates();
+
+    // Find all features at this coordinate across all vector layers.
+    // Usually just one, but features can overlap at the same point.
+    this.#featuresAtLocation = [];
+    this.#map.getLayers().getArray().forEach((layer) => {
+      if (layer instanceof ol.layer.Vector) {
+        this.#featuresAtLocation = this.#featuresAtLocation.concat(
+          layer.getSource().getFeaturesAtCoordinate(coord)
+        );
+      }
+    });
+
+    this.#currentFeatureIndex = 0;
+    this.#updatePopup();
+  }
+
+  // Called by map.js when clicking empty space or panning away.
+  clear() {
+    this.#popupEl.innerHTML = '';
+    this.#overlay.setPosition(undefined);
+  }
+
+  // Called by map.js after panning to check if popup scrolled off screen.
+  isVisible() {
+    const pos = this.#overlay.getPosition();
+    if (!pos) return false;
+    const px = this.#map.getPixelFromCoordinate(pos);
+    const sz = this.#map.getSize();
+    return px[0] >= 0 && px[0] < sz[0] && px[1] >= 0 && px[1] < sz[1];
+  }
+
+
+  // ── Private methods ───────────────────────────────────────────────────
+  //
+  // Implementation details. Nothing outside this class calls these.
+  //
+  // Notice that all of these use "this.#field" where the factory function
+  // version used the bare variable name (e.g. "featuresAtLocation").
+  // That's the only mechanical difference — the logic is identical.
+
+  #updatePopup() {
+    if (this.#featuresAtLocation.length === 0) return;
+
+    const feature    = this.#featuresAtLocation[this.#currentFeatureIndex];
+    const properties = feature.getProperties();
+    const coords     = feature.getGeometry().getCoordinates();
+
+    this.#popupEl.innerHTML = '';
+
+    const content = el('div', 'popup-content');
+    content.appendChild(this.#renderProperties(properties));
+
+    const bemerkungen = this.#renderBemerkungen(properties.bemerkungen);
+    if (bemerkungen) content.appendChild(bemerkungen);
+
+    const thumbs = this.#renderPhotoThumbs(properties.photos);
+    if (thumbs) content.appendChild(thumbs);
+
+    this.#popupEl.appendChild(content);
+
+    if (this.#featuresAtLocation.length > 1) {
+      this.#popupEl.appendChild(this.#renderNavigation());
+    }
+
+    this.#overlay.setPosition(coords);
+  }
+
+  #renderProperties(properties) {
     const fragment = document.createDocumentFragment();
 
     for (const key in properties) {
-      if (!Object.hasOwn(propertyAliases, key)) continue;
+      if (!Object.hasOwn(this.#propertyAliases, key)) continue;
 
       const row   = el('div', 'prop-row');
-      const label = el('span', 'bold', propertyAliases[key] + ': ');
-      // Using textContent for the value means database content
-      // can never be interpreted as HTML — no injection risk.
+      const label = el('span', 'bold', this.#propertyAliases[key] + ': ');
       const value = document.createTextNode(properties[key] ?? '-');
 
       row.appendChild(label);
@@ -111,34 +196,20 @@ function createPopupController(map, overlay) {
     return fragment;
   }
 
-
-  // Returns a <div class="bemerkungen-section"> element, or null if empty.
-  //
-  // Returning null instead of an empty element lets the caller do a simple
-  // if (bemerkungen) check and skip appending entirely.
-  function renderBemerkungen(bemerkungen) {
+  #renderBemerkungen(bemerkungen) {
     if (!Array.isArray(bemerkungen) || bemerkungen.length === 0) return null;
 
     const section = el('div', 'bemerkungen-section');
 
-    // Header row
     const header = el('div', 'bemerkungen-header');
     header.appendChild(el('span', null, '📋 Beobachtungen'));
     header.appendChild(el('span', 'bemerkungen-count', String(bemerkungen.length)));
     section.appendChild(header);
 
-    // Scrollable list
     const list = el('div', 'bemerkungen-list');
-
-    bemerkungen.forEach(function (b) {
+    bemerkungen.forEach((b) => {
       const entry = el('div', 'bem-entry');
-
-      if (b.datum) {
-        entry.appendChild(el('span', 'bem-date', b.datum));
-      }
-
-      // textContent here means even if b.text somehow contained '<script>',
-      // the browser would display it as literal text, not execute it.
+      if (b.datum) entry.appendChild(el('span', 'bem-date', b.datum));
       entry.appendChild(el('span', 'bem-text', b.text));
       list.appendChild(entry);
     });
@@ -147,9 +218,7 @@ function createPopupController(map, overlay) {
     return section;
   }
 
-
-  // Returns a <div class="photo-thumbs"> element, or null if empty.
-  function renderPhotoThumbs(photos) {
+  #renderPhotoThumbs(photos) {
     if (!Array.isArray(photos) || photos.length === 0) return null;
 
     const MAX_THUMBS   = 3;
@@ -166,31 +235,22 @@ function createPopupController(map, overlay) {
       const isLast = i === visibleCount - 1;
 
       const thumb = el('div', 'photo-trigger photo-thumb');
-
-      // data attributes are how we pass data to event handlers without
-      // globals. We set them with setAttribute or the dataset API.
-      // JSON.stringify turns the photos array back into a string so we
-      // can store it and parse it back in the click handler.
       thumb.dataset.photos = JSON.stringify(photos);
       thumb.dataset.index  = String(i);
       thumb.title          = datum ?? `Foto ${i + 1}`;
 
-      const img    = document.createElement('img');
-      img.src      = url;
-      img.alt      = `Foto ${i + 1}`;
-      img.loading  = 'lazy';
+      const img   = document.createElement('img');
+      img.src     = url;
+      img.alt     = `Foto ${i + 1}`;
+      img.loading = 'lazy';
       thumb.appendChild(img);
 
-      // Overflow badge on the last visible thumbnail
       if (isLast && overflow > 0) {
         thumb.classList.add('photo-thumb-overflow');
         thumb.title = `Alle ${photos.length} Fotos anzeigen`;
-
-        const badge = el('div', 'photo-overflow-badge', `+${overflow}`);
-        thumb.appendChild(badge);
+        thumb.appendChild(el('div', 'photo-overflow-badge', `+${overflow}`));
       }
 
-      // Date badge at the bottom of the thumbnail
       if (datum) {
         thumb.appendChild(el('div', 'thumb-date-badge', datum));
       }
@@ -201,113 +261,91 @@ function createPopupController(map, overlay) {
     return strip;
   }
 
-
-  // Returns the prev/next navigation bar element.
-  // This is the one place we still use innerHTML — the arrow characters
-  // are static trusted strings, not user data, so it's safe.
-  function renderNavigation() {
+  // #renderNavigation uses a template literal with this.#currentFeatureIndex
+  // and this.#featuresAtLocation.length — this is the "subtle this trap"
+  // mentioned before the rewrite. In the factory function these were bare
+  // variable names. In a class method they must be this.#field, otherwise
+  // JS looks for a local variable called "currentFeatureIndex" which doesn't
+  // exist and throws a ReferenceError.
+  #renderNavigation() {
     const nav = el('div', 'popup-navigation');
     nav.innerHTML = `
       <button class="nav-button" data-direction="prev">&lt;</button>
-      <span>${currentFeatureIndex + 1} von ${featuresAtLocation.length}</span>
+      <span>${this.#currentFeatureIndex + 1} von ${this.#featuresAtLocation.length}</span>
       <button class="nav-button" data-direction="next">&gt;</button>`;
     return nav;
   }
 
-
-  function showPreviousFeature() {
-    currentFeatureIndex = (currentFeatureIndex - 1 + featuresAtLocation.length) % featuresAtLocation.length;
-    updatePopup();
+  #showPreviousFeature() {
+    this.#currentFeatureIndex =
+      (this.#currentFeatureIndex - 1 + this.#featuresAtLocation.length) % this.#featuresAtLocation.length;
+    this.#updatePopup();
   }
 
-  function showNextFeature() {
-    currentFeatureIndex = (currentFeatureIndex + 1) % featuresAtLocation.length;
-    updatePopup();
+  #showNextFeature() {
+    this.#currentFeatureIndex =
+      (this.#currentFeatureIndex + 1) % this.#featuresAtLocation.length;
+    this.#updatePopup();
   }
 
 
-  // ── Event listeners ─────────────────────────────────────────────────────
+  // ── Event listeners ───────────────────────────────────────────────────
   //
-  // Attached once. Use event delegation so they work regardless of
-  // what's currently inside popupEl. See Step 2 for the full explanation.
+  // Called once from the constructor. All arrow functions so "this"
+  // always refers to the PopupController instance.
+  //
+  // Compare to the factory function version: the logic is identical,
+  // but "showPreviousFeature()" becomes "this.#showPreviousFeature()"
+  // and "openPhotoModal(...)" stays the same because that is a global
+  // wrapper function defined at the bottom of modal.js.
 
-  ['pointerdown', 'pointerup', 'touchstart', 'touchmove', 'touchend'].forEach(function (ev) {
-    popupEl.addEventListener(ev, function (e) { e.stopPropagation(); });
-  });
+  #attachListeners() {
+    // Stop map interactions firing through the popup
+    ['pointerdown', 'pointerup', 'touchstart', 'touchmove', 'touchend'].forEach((ev) => {
+      this.#popupEl.addEventListener(ev, (e) => e.stopPropagation());
+    });
 
-  popupEl.addEventListener('wheel', function (e) { e.stopPropagation(); }, { passive: true });
+    // Stop map zoom when scrolling the bemerkungen list
+    this.#popupEl.addEventListener('wheel', (e) => e.stopPropagation(), { passive: true });
 
-  popupEl.addEventListener('click', function (e) {
-    e.stopPropagation();
-
-    if (e.target.classList.contains('nav-button')) {
-      if (e.target.dataset.direction === 'prev') showPreviousFeature();
-      else showNextFeature();
-      return;
-    }
-
-    const trigger = e.target.closest('.photo-trigger');
-    if (trigger) {
-      openPhotoModal(
-        JSON.parse(trigger.dataset.photos || '[]'),
-        parseInt(trigger.dataset.index || '0', 10)
-      );
-    }
-  });
-
-  popupEl.addEventListener('touchend', function (e) {
-    if (e.target.classList.contains('nav-button')) {
-      e.preventDefault();
+    // Click delegation — one listener handles all clicks inside the popup
+    this.#popupEl.addEventListener('click', (e) => {
       e.stopPropagation();
-      if (e.target.dataset.direction === 'prev') showPreviousFeature();
-      else showNextFeature();
-      return;
-    }
 
-    const trigger = e.target.closest('.photo-trigger');
-    if (trigger) {
-      e.preventDefault();
-      e.stopPropagation();
-      openPhotoModal(
-        JSON.parse(trigger.dataset.photos || '[]'),
-        parseInt(trigger.dataset.index || '0', 10)
-      );
-    }
-  });
+      if (e.target.classList.contains('nav-button')) {
+        if (e.target.dataset.direction === 'prev') this.#showPreviousFeature();
+        else this.#showNextFeature();
+        return;
+      }
 
+      const trigger = e.target.closest('.photo-trigger');
+      if (trigger) {
+        openPhotoModal(
+          JSON.parse(trigger.dataset.photos || '[]'),
+          parseInt(trigger.dataset.index || '0', 10)
+        );
+      }
+    });
 
-  // ── Public API ───────────────────────────────────────────────────────────
+    // Touch delegation — same pattern, instant response on mobile
+    this.#popupEl.addEventListener('touchend', (e) => {
+      if (e.target.classList.contains('nav-button')) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.target.dataset.direction === 'prev') this.#showPreviousFeature();
+        else this.#showNextFeature();
+        return;
+      }
 
-  return {
-
-    handleFeatureClick: function (clickedFeature) {
-      const coord = clickedFeature.getGeometry().getCoordinates();
-
-      featuresAtLocation = [];
-      map.getLayers().getArray().forEach(function (layer) {
-        if (layer instanceof ol.layer.Vector) {
-          featuresAtLocation = featuresAtLocation.concat(
-            layer.getSource().getFeaturesAtCoordinate(coord)
-          );
-        }
-      });
-
-      currentFeatureIndex = 0;
-      updatePopup();
-    },
-
-    clear: function () {
-      popupEl.innerHTML = '';
-      overlay.setPosition(undefined);
-    },
-
-    isVisible: function () {
-      const pos = overlay.getPosition();
-      if (!pos) return false;
-      const px = map.getPixelFromCoordinate(pos);
-      const sz = map.getSize();
-      return px[0] >= 0 && px[0] < sz[0] && px[1] >= 0 && px[1] < sz[1];
-    },
-
-  };
+      const trigger = e.target.closest('.photo-trigger');
+      if (trigger) {
+        e.preventDefault();
+        e.stopPropagation();
+        openPhotoModal(
+          JSON.parse(trigger.dataset.photos || '[]'),
+          parseInt(trigger.dataset.index || '0', 10)
+        );
+      }
+    });
+  }
 }

@@ -1,24 +1,15 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // map.js
 //
-// Responsible for setting up the OpenLayers map and wiring together
-// the data layer, select interaction, popup overlay, and basemap switcher.
+// Sets up the OpenLayers map and wires together the data layer,
+// select interaction, popup overlay, and basemap switcher.
 //
-// Depends on: popup.js (calls createPopupController)
-//
-// initMap() is still a global function because unken_map.js and
-// species_map.js call it. In Step 4, when we add modules with
-// import/export, this will be a proper export instead.
+// Depends on: popup.js (PopupController class)
 // ─────────────────────────────────────────────────────────────────────────────
-
 
 function initMap(collectionName, styleFunction) {
 
   // ── Basemap layers ──────────────────────────────────────────────────────
-  //
-  // Defined up here so the basemap switcher buttons below can reference them.
-  // They are local variables — nothing outside initMap can access them,
-  // which is fine because nothing outside needs to.
 
   const osmLayer = new ol.layer.Tile({
     source: new ol.source.OSM(),
@@ -56,7 +47,7 @@ function initMap(collectionName, styleFunction) {
   homeButton.className = 'ol-control ol-unselectable home-button';
   homeButton.innerHTML = '🏠';
   homeButton.title     = 'Go to home page';
-  homeButton.addEventListener('click', function () {
+  homeButton.addEventListener('click', () => {
     window.location.href = '../index.html';
   });
   map.addControl(new ol.control.Control({ element: homeButton }));
@@ -76,10 +67,6 @@ function initMap(collectionName, styleFunction) {
 
 
   // ── Select interaction ──────────────────────────────────────────────────
-  //
-  // OL's Select interaction highlights a clicked feature and keeps track
-  // of which features are "selected". We use it only for the yellow
-  // highlight style — the actual popup logic lives in popup.js.
 
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
@@ -96,11 +83,17 @@ function initMap(collectionName, styleFunction) {
   map.addInteraction(select);
 
 
-  // ── Popup overlay ───────────────────────────────────────────────────────
+  // ── Popup ───────────────────────────────────────────────────────────────
   //
-  // ol.Overlay positions a DOM element at a map coordinate.
-  // We create it here and pass both map and overlay into createPopupController
-  // so popup.js can position itself without knowing about map internals.
+  // The only change from the factory function version:
+  //   BEFORE: const popup = createPopupController(map, overlay);
+  //   AFTER:  const popup = new PopupController(map, overlay);
+  //
+  // The public API (popup.handleFeatureClick, popup.clear, popup.isVisible)
+  // is identical — map.js doesn't need to know whether PopupController is
+  // implemented as a class or a factory function. That's the benefit of
+  // having a clean public API: the internals can change without the caller
+  // noticing.
 
   const overlay = new ol.Overlay({
     element:     document.getElementById('popup'),
@@ -110,19 +103,15 @@ function initMap(collectionName, styleFunction) {
   });
   map.addOverlay(overlay);
 
-  // Create the popup controller — this is where popup.js comes in.
-  // We pass map and overlay as dependencies ("dependency injection"):
-  // popup.js doesn't reach out and grab them itself, we hand them in.
-  // This makes popup.js easier to test and reuse.
-  const popup = createPopupController(map, overlay);
+  const popup = new PopupController(map, overlay);
 
 
   // ── Map event handlers ──────────────────────────────────────────────────
 
-  map.on('singleclick', function (evt) {
+  map.on('singleclick', (evt) => {
     const feature = map.forEachFeatureAtPixel(
       evt.pixel,
-      function (f) { return f; },
+      (f) => f,
       { hitTolerance: isMobile ? 15 : 1 }
     );
 
@@ -136,23 +125,19 @@ function initMap(collectionName, styleFunction) {
     }
   });
 
-  // Hide popup when it scrolls off screen
-  map.on('moveend', function () {
+  map.on('moveend', () => {
     if (!popup.isVisible()) popup.clear();
   });
 
 
   // ── Basemap switcher ────────────────────────────────────────────────────
 
-  document.getElementById('osm').addEventListener('click', function () {
+  document.getElementById('osm').addEventListener('click', () => {
     map.getLayers().setAt(0, osmLayer);
   });
-  document.getElementById('google').addEventListener('click', function () {
+  document.getElementById('google').addEventListener('click', () => {
     map.getLayers().setAt(0, googleLayer);
   });
 
-
-  // Return the map so the calling script (unken_map.js etc.) can use it,
-  // for example to add the Hüpferlinge counter control.
   return map;
 }
