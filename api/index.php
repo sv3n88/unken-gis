@@ -1,4 +1,5 @@
 <?php
+
 // ─────────────────────────────────────────────────────────────────────────────
 // index.php
 //
@@ -69,11 +70,11 @@ $path = trim(
 
 $router = new Router($_SERVER['REQUEST_METHOD'], $path);
 
-$router->get('',                                   fn($p) => $handler->landingPage());
-$router->get('collections',                        fn($p) => $handler->listCollections());
-$router->get('collections/{id}',                   fn($p) => $handler->collectionMetadata($p['id']));
-$router->get('collections/{id}/items',             fn($p) => $handler->getItems($p['id']));
-$router->get('collections/{id}/items/{fid}',       fn($p) => $handler->getItem($p['id'], $p['fid']));
+$router->get('', fn($p) => $handler->landingPage());
+$router->get('collections', fn($p) => $handler->listCollections());
+$router->get('collections/{id}', fn($p) => $handler->collectionMetadata($p['id']));
+$router->get('collections/{id}/items', fn($p) => $handler->getItems($p['id']));
+$router->get('collections/{id}/items/{fid}', fn($p) => $handler->getItem($p['id'], $p['fid']));
 
 // Future write endpoints would go here:
 // $router->post('collections/{id}/items',          fn($p) => $handler->createItem($p['id']));

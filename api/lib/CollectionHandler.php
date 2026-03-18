@@ -1,4 +1,5 @@
 <?php
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Api/CollectionHandler.php
 //
@@ -16,8 +17,8 @@
 
 namespace Api;
 
-class CollectionHandler {
-
+class CollectionHandler
+{
     private Database $db;
     private string   $baseUrl;
 
@@ -29,7 +30,8 @@ class CollectionHandler {
     // $baseUrl is computed once here so every method can build links
     // without repeating the protocol/host/path logic.
 
-    public function __construct(Database $db, string $baseUrl) {
+    public function __construct(Database $db, string $baseUrl)
+    {
         $this->db      = $db;
         $this->baseUrl = $baseUrl;
     }
@@ -40,18 +42,20 @@ class CollectionHandler {
     // index.php calls exactly one of these per request.
     // Each one calls Response::send() which exits, so they never return.
 
-    public function landingPage(): never {
+    public function landingPage(): never
+    {
         Response::send([
             'title'       => API_TITLE,
             'description' => 'OGC API Features implementation for Unkenprojekt GIS data',
             'links'       => [
-                $this->link($this->baseUrl,                  'self', 'This document'),
+                $this->link($this->baseUrl, 'self', 'This document'),
                 $this->link($this->baseUrl . '/collections', 'data', 'Collections'),
             ],
         ]);
     }
 
-    public function listCollections(): never {
+    public function listCollections(): never
+    {
         $collections = [];
 
         foreach ($this->db->getCollectionNames() as $entry) {
@@ -64,7 +68,7 @@ class CollectionHandler {
                 'title'       => ucfirst($name),
                 'description' => $entry['description'] ?: "Collection: $name",
                 'links'       => [
-                    $this->link($url,           'self',  'This collection'),
+                    $this->link($url, 'self', 'This collection'),
                     $this->link($url . '/items', 'items', 'Items'),
                 ],
                 'extent'    => $this->extent($stats['bbox']),
@@ -80,7 +84,8 @@ class CollectionHandler {
         ]);
     }
 
-    public function collectionMetadata(string $collectionId): never {
+    public function collectionMetadata(string $collectionId): never
+    {
         $this->requireCollection($collectionId);
 
         $stats = $this->db->getCollectionStats($collectionId);
@@ -91,7 +96,7 @@ class CollectionHandler {
             'title'       => ucfirst($collectionId),
             'description' => "GIS collection: $collectionId",
             'links'       => [
-                $this->link($url,           'self',  'This collection'),
+                $this->link($url, 'self', 'This collection'),
                 $this->link($url . '/items', 'items', 'Items'),
             ],
             'extent'    => $this->extent($stats['bbox']),
@@ -101,7 +106,8 @@ class CollectionHandler {
         ]);
     }
 
-    public function getItems(string $collectionId): never {
+    public function getItems(string $collectionId): never
+    {
         $this->requireCollection($collectionId);
 
         // Validate and clamp pagination parameters.
@@ -139,7 +145,8 @@ class CollectionHandler {
         ]);
     }
 
-    public function getItem(string $collectionId, string $rawId): never {
+    public function getItem(string $collectionId, string $rawId): never
+    {
         $this->requireCollection($collectionId);
 
         $fid = intval($rawId);
@@ -170,7 +177,8 @@ class CollectionHandler {
      * rest of the method can assume the input is valid. Much cleaner than
      * wrapping everything in an if/else.
      */
-    private function requireCollection(string $collectionId): void {
+    private function requireCollection(string $collectionId): void
+    {
         if (!$this->db->tableExists($collectionId)) {
             Response::error("Collection '$collectionId' not found", 404);
         }
@@ -180,7 +188,8 @@ class CollectionHandler {
      * Converts raw database rows into GeoJSON Feature arrays.
      * Attaches photos and bemerkungen from the metadata map.
      */
-    private function buildFeatures(array $rows, array $metadataMap): array {
+    private function buildFeatures(array $rows, array $metadataMap): array
+    {
         $features = [];
 
         foreach ($rows as $row) {
@@ -212,14 +221,16 @@ class CollectionHandler {
      * Builds an OGC API link object.
      * Extracted as a helper because every endpoint produces several of these.
      */
-    private function link(string $href, string $rel, string $title, string $type = 'application/json'): array {
+    private function link(string $href, string $rel, string $title, string $type = 'application/json'): array
+    {
         return ['href' => $href, 'rel' => $rel, 'type' => $type, 'title' => $title];
     }
 
     /**
      * Builds an OGC API spatial extent object from a bounding box array.
      */
-    private function extent(array $bbox): array {
+    private function extent(array $bbox): array
+    {
         return ['spatial' => ['bbox' => [$bbox], 'crs' => DEFAULT_CRS]];
     }
 }

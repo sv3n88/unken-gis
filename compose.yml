@@ -38,8 +38,8 @@ services:
     container_name: unkenprojekt_nginx
     restart: unless-stopped
     ports:
-      - "80:80"      
-      - "443:443"   
+      - "80:80"
+      - "443:443"
     environment:
     - DOMAIN=${DOMAIN}
     volumes:

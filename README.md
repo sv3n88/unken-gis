@@ -35,7 +35,7 @@ cp .env.example .env.docker
 
 Then open `.env` and `.env.docker` and adjust the values to match your local setup (database credentials, API keys, etc.).
 
-> `.env` contains the environment variables for the PostGIS container (database credentials, etc.) and is referenced in `compose.yml`. `.env.docker` is copied into the PHP API Docker container and holds the API's configuration, therefore the DB_HOST must be 
+> `.env` contains the environment variables for the PostGIS container (database credentials, etc.) and is referenced in `compose.yml`. `.env.docker` is copied into the PHP API Docker container and holds the API's configuration, therefore the DB_HOST must be
 the name of the docker container (postgis).
 
 ### 3. Start the application

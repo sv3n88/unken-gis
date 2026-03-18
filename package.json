@@ -1,0 +1,15 @@
+{
+  "name": "unkenprojekt-frontend",
+  "type": "module",
+  "scripts": {
+    "lint":     "eslint app/js/",
+    "lint:fix": "eslint app/js/ --fix",
+    "test":     "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "eslint":  "^9.0.0",
+    "vitest":  "^2.0.0",
+    "jsdom":   "^24.0.0"
+  }
+}

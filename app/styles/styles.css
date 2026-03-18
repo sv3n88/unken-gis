@@ -352,7 +352,7 @@ body {
   background: #eee;
   transition: border-color 0.2s, transform 0.15s;
   flex-shrink: 0;
-  position: relative; 
+  position: relative;
 }
 
 .photo-thumb img {

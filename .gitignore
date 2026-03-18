@@ -3,3 +3,17 @@
 */DCIM/*
 AGENDA.md
 */files/*
+
+# Composer
+vendor/
+composer.lock
+
+# PHP-CS-Fixer cache — generated on first run, not needed in the repo
+.php-cs-fixer.cache
+
+# Node
+node_modules/
+package-lock.json
+
+# PHPUnit
+.phpunit.result.cache

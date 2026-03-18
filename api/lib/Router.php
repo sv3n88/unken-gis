@@ -1,4 +1,5 @@
 <?php
+
 // ─────────────────────────────────────────────────────────────────────────────
 // lib/Router.php
 //
@@ -16,8 +17,8 @@
 
 namespace lib;
 
-class Router {
-
+class Router
+{
     private array  $routes = [];
     private string $method;
     private array  $parts;   // the request path split into segments
@@ -31,7 +32,8 @@ class Router {
     // "collections/biotope/items/3" → ["collections", "biotope", "items", "3"]
     // "" (root)                     → [""]
 
-    public function __construct(string $method, string $path) {
+    public function __construct(string $method, string $path)
+    {
         $this->method = strtoupper($method);
         $this->parts  = explode('/', trim($path, '/'));
     }
@@ -41,19 +43,23 @@ class Router {
     //
     // One method per HTTP verb. Adding a new verb in the future is one line.
 
-    public function get(string $pattern, callable $handler): void {
+    public function get(string $pattern, callable $handler): void
+    {
         $this->register('GET', $pattern, $handler);
     }
 
-    public function post(string $pattern, callable $handler): void {
+    public function post(string $pattern, callable $handler): void
+    {
         $this->register('POST', $pattern, $handler);
     }
 
-    public function put(string $pattern, callable $handler): void {
+    public function put(string $pattern, callable $handler): void
+    {
         $this->register('PUT', $pattern, $handler);
     }
 
-    public function delete(string $pattern, callable $handler): void {
+    public function delete(string $pattern, callable $handler): void
+    {
         $this->register('DELETE', $pattern, $handler);
     }
 
@@ -68,7 +74,8 @@ class Router {
     //
     // This means a wrong method returns 405, not 404.
 
-    public function dispatch(): never {
+    public function dispatch(): never
+    {
         $pathMatched = false;
 
         foreach ($this->routes as $route) {
@@ -110,7 +117,8 @@ class Router {
      * Splitting here means match() only ever compares arrays — no string
      * splitting happens during the actual request.
      */
-    private function register(string $method, string $pattern, callable $handler): void {
+    private function register(string $method, string $pattern, callable $handler): void
+    {
         $this->routes[] = [
             'method'  => strtoupper($method),
             // Split pattern into segments, same as we split the request path
@@ -138,7 +146,8 @@ class Router {
      *   parts:   ['collections', 'biotope']
      *   result:  false  (different number of segments)
      */
-    private function match(array $parts, array $pattern): array|false {
+    private function match(array $parts, array $pattern): array|false
+    {
         // Different number of segments → can never match
         if (count($parts) !== count($pattern)) {
             return false;

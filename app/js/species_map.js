@@ -8,6 +8,6 @@ function styleFunction() {
       }),
     });
   }
-  
+
   // Use collection name instead of JSON file path
   const map = initMap("species", styleFunction);

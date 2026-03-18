@@ -1,4 +1,5 @@
 <?php
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Api/Response.php
 //
@@ -13,8 +14,8 @@
 
 namespace lib;
 
-class Response {
-
+class Response
+{
     // ── Public static methods ─────────────────────────────────────────────
     //
     // PHP static methods use the "::" operator instead of "->".
@@ -32,7 +33,8 @@ class Response {
      * @param mixed $data  Anything json_encode() can handle: array, object, etc.
      * @param int   $code  HTTP status code. 200 = OK (the default).
      */
-    public static function send(mixed $data, int $code = 200): never {
+    public static function send(mixed $data, int $code = 200): never
+    {
         // "never" as a return type means this function never returns normally —
         // it always exits. PHP 8.1+ supports this as a type hint, which helps
         // static analysis tools understand that code after this call is unreachable.
@@ -48,7 +50,8 @@ class Response {
      * @param string $message  Human-readable error description.
      * @param int    $code     HTTP status code. 404, 400, 500 etc.
      */
-    public static function error(string $message, int $code): never {
+    public static function error(string $message, int $code): never
+    {
         // HTTP has a convention: 4xx = client error (bad request, not found),
         // 5xx = server error (database down, bug in code).
         // Sending the right code matters because browsers, proxies, and
@@ -63,7 +66,8 @@ class Response {
      * Set CORS headers so the API can be called from other origins.
      * Called once at the top of index.php before any routing happens.
      */
-    public static function setCORSHeaders(): void {
+    public static function setCORSHeaders(): void
+    {
         header('Access-Control-Allow-Origin: *');
         header('Access-Control-Allow-Methods: GET, OPTIONS');
         header('Access-Control-Allow-Headers: Content-Type');

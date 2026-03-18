@@ -1,4 +1,5 @@
 <?php
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Api/Database.php
 //
@@ -16,8 +17,8 @@
 
 namespace Api;
 
-class Database {
-
+class Database
+{
     // ── Private properties ────────────────────────────────────────────────
     //
     // $conn is the PostgreSQL connection resource.
@@ -42,7 +43,8 @@ class Database {
     // index.php creates the connection once and passes it in:
     //   $db = new Database($conn, DB_SCHEMA);
 
-    public function __construct($conn, string $schema) {
+    public function __construct($conn, string $schema)
+    {
         $this->conn   = $conn;
         $this->schema = $schema;
     }
@@ -56,7 +58,8 @@ class Database {
     /**
      * Returns true if a table exists in the schema.
      */
-    public function tableExists(string $tableName): bool {
+    public function tableExists(string $tableName): bool
+    {
         $result = pg_query_params(
             $this->conn,
             "SELECT EXISTS(
@@ -65,7 +68,9 @@ class Database {
             ) AS exists",
             [$this->schema, $tableName]
         );
-        if (!$result) return false;
+        if (!$result) {
+            return false;
+        }
         $row = pg_fetch_assoc($result);
         return $row && $row['exists'] === 't';
     }
@@ -73,7 +78,8 @@ class Database {
     /**
      * Returns an ordered list of column names for a table.
      */
-    public function getColumns(string $tableName): array {
+    public function getColumns(string $tableName): array
+    {
         $result = pg_query_params(
             $this->conn,
             "SELECT column_name FROM information_schema.columns
@@ -81,7 +87,9 @@ class Database {
              ORDER BY ordinal_position",
             [$this->schema, $tableName]
         );
-        if (!$result) return [];
+        if (!$result) {
+            return [];
+        }
         $columns = [];
         while ($row = pg_fetch_assoc($result)) {
             $columns[] = $row['column_name'];
@@ -92,7 +100,8 @@ class Database {
     /**
      * Returns bounding box and feature count for a collection.
      */
-    public function getCollectionStats(string $tableName): array {
+    public function getCollectionStats(string $tableName): array
+    {
         $result = pg_query(
             $this->conn,
             sprintf(
@@ -133,7 +142,8 @@ class Database {
      * Returns all table names in the schema, excluding side tables
      * (_metadata, _images) that are not map collections.
      */
-    public function getCollectionNames(): array {
+    public function getCollectionNames(): array
+    {
         $result = pg_query_params(
             $this->conn,
             "SELECT table_name,
@@ -145,12 +155,16 @@ class Database {
              ORDER BY table_name",
             [$this->schema]
         );
-        if (!$result) return [];
+        if (!$result) {
+            return [];
+        }
 
         $names = [];
         while ($row = pg_fetch_assoc($result)) {
             $t = $row['table_name'];
-            if (str_ends_with($t, '_metadata') || str_ends_with($t, '_images')) continue;
+            if (str_ends_with($t, '_metadata') || str_ends_with($t, '_images')) {
+                continue;
+            }
             $names[] = ['name' => $t, 'description' => $row['description']];
         }
         return $names;
@@ -160,7 +174,8 @@ class Database {
      * Fetches feature rows for a collection with pagination.
      * Returns raw rows including geometry as GeoJSON strings and __uuid.
      */
-    public function fetchRows(string $collectionId, int $limit, int $offset): array {
+    public function fetchRows(string $collectionId, int $limit, int $offset): array
+    {
         $selectList = $this->buildSelectList($collectionId);
 
         $result = pg_query(
@@ -190,7 +205,8 @@ class Database {
      * Fetches a single feature row by fid.
      * Returns the raw row, or null if not found.
      */
-    public function fetchRow(string $collectionId, int $fid): ?array {
+    public function fetchRow(string $collectionId, int $fid): ?array
+    {
         $selectList = $this->buildSelectList($collectionId);
 
         $result = pg_query_params(
@@ -219,7 +235,8 @@ class Database {
     /**
      * Returns the total feature count for a collection.
      */
-    public function fetchCount(string $collectionId): int {
+    public function fetchCount(string $collectionId): int
+    {
         $result = pg_query(
             $this->conn,
             sprintf(
@@ -228,7 +245,9 @@ class Database {
                 pg_escape_string($this->conn, $collectionId)
             )
         );
-        if (!$result) return 0;
+        if (!$result) {
+            return 0;
+        }
         return intval(pg_fetch_assoc($result)['count']);
     }
 
@@ -240,8 +259,11 @@ class Database {
      *
      * Falls back to legacy _images table if no _metadata table exists.
      */
-    public function fetchMetadata(string $collectionId, array $uuids): array {
-        if (empty($uuids)) return [];
+    public function fetchMetadata(string $collectionId, array $uuids): array
+    {
+        if (empty($uuids)) {
+            return [];
+        }
 
         $fkColumn      = $collectionId . '_uuid';
         $metadataTable = $collectionId . '_metadata';
@@ -250,7 +272,9 @@ class Database {
         $hasMetadata = $this->tableExists($metadataTable);
         $hasImages   = !$hasMetadata && $this->tableExists($imagesTable);
 
-        if (!$hasMetadata && !$hasImages) return [];
+        if (!$hasMetadata && !$hasImages) {
+            return [];
+        }
 
         $table        = $hasMetadata ? $metadataTable : $imagesTable;
         $bemerkungCol = $hasMetadata ? 'bemerkung' : 'NULL::TEXT AS bemerkung';
@@ -318,13 +342,16 @@ class Database {
      * Excludes geometry/internal columns, aliases fid as id,
      * and adds __uuid and geometry as GeoJSON.
      */
-    private function buildSelectList(string $collectionId): string {
+    private function buildSelectList(string $collectionId): string
+    {
         $columns = $this->getColumns($collectionId);
         $skip    = ['geom', 'uuid', 'photo', 'photo_hyperlink'];
 
         $parts = [];
         foreach ($columns as $col) {
-            if (in_array($col, $skip)) continue;
+            if (in_array($col, $skip)) {
+                continue;
+            }
             // Alias fid as "id" so the frontend response stays unchanged
             $parts[] = $col === 'fid'
                 ? '"fid" AS "id"'

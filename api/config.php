@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Database Configuration
  * Loads configuration from .env file
@@ -7,31 +8,32 @@
 /**
  * Load environment variables from .env file
  */
-function loadEnv($path) {
+function loadEnv($path)
+{
     if (!file_exists($path)) {
         throw new Exception('.env file not found. Please copy .env.example to .env and configure it.');
     }
-    
+
     $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-    
+
     foreach ($lines as $line) {
         // Skip comments
         if (strpos(trim($line), '#') === 0) {
             continue;
         }
-        
+
         // Parse KEY=VALUE
         if (strpos($line, '=') !== false) {
-            list($key, $value) = explode('=', $line, 2);
+            [$key, $value] = explode('=', $line, 2);
             $key = trim($key);
             $value = trim($value);
-            
+
             // Remove quotes if present
-            if ((substr($value, 0, 1) === '"' && substr($value, -1) === '"') ||
-                (substr($value, 0, 1) === "'" && substr($value, -1) === "'")) {
+            if ((substr($value, 0, 1) === '"' && substr($value, -1) === '"')
+                || (substr($value, 0, 1) === "'" && substr($value, -1) === "'")) {
                 $value = substr($value, 1, -1);
             }
-            
+
             // Set as environment variable
             putenv("$key=$value");
             $_ENV[$key] = $value;
@@ -68,9 +70,10 @@ define('MAX_LIMIT', intval(getenv('MAX_LIMIT') ?: 1000));
 /**
  * Get database connection
  */
-function getDBConnection() {
+function getDBConnection()
+{
     static $conn = null;
-    
+
     if ($conn === null) {
         $connString = sprintf(
             "host=%s port=%s dbname=%s user=%s password=%s",
@@ -80,30 +83,31 @@ function getDBConnection() {
             DB_USER,
             DB_PASSWORD
         );
-        
+
         $conn = pg_connect($connString);
-        
+
         if (!$conn) {
             http_response_code(500);
             header('Content-Type: application/json');
             echo json_encode([
                 'error' => 'Database connection failed',
-                'message' => pg_last_error()
+                'message' => pg_last_error(),
             ]);
             exit;
         }
-        
+
         // Set client encoding to UTF8
         pg_set_client_encoding($conn, 'UTF8');
     }
-    
+
     return $conn;
 }
 
 /**
  * Set CORS headers if enabled
  */
-function setCORSHeaders() {
+function setCORSHeaders()
+{
     if (ALLOW_CORS) {
         header('Access-Control-Allow-Origin: *');
         header('Access-Control-Allow-Methods: GET, OPTIONS');
@@ -114,7 +118,8 @@ function setCORSHeaders() {
 /**
  * Send JSON response
  */
-function sendJSON($data, $statusCode = 200) {
+function sendJSON($data, $statusCode = 200)
+{
     http_response_code($statusCode);
     header('Content-Type: application/json; charset=utf-8');
     echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
@@ -124,11 +129,10 @@ function sendJSON($data, $statusCode = 200) {
 /**
  * Send error response
  */
-function sendError($message, $statusCode = 400, $code = null) {
+function sendError($message, $statusCode = 400, $code = null)
+{
     sendJSON([
         'code' => $code ?: $statusCode,
-        'description' => $message
+        'description' => $message,
     ], $statusCode);
 }
-
-?>
