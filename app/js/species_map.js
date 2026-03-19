@@ -1,5 +1,5 @@
 function styleFunction() {
-    let fillColor = "purple";
+    const fillColor = "purple";
     return new ol.style.Style({
       image: new ol.style.Circle({
         radius: 12.5,

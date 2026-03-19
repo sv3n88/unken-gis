@@ -1,0 +1,62 @@
+# .github/workflows/ci.yml
+#
+# Runs on every push and pull request.
+# Uses pre-commit to run all hooks — the same checks that run locally
+# on every commit. One job, one source of truth.
+
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+
+jobs:
+
+  pre-commit:
+    name: pre-commit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # pre-commit itself runs in Python
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Needed for the PHP-CS-Fixer hook
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          extensions: dom, xml, mbstring
+
+      # Needed for the ESLint hook
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: app/package.json
+
+      # pre-commit calls "composer run lint" which needs vendor/ to exist
+      - name: Install Composer dependencies
+        working-directory: api
+        run: composer install --no-interaction --prefer-dist
+
+      # pre-commit calls "npx eslint" which needs node_modules/ to exist
+      - name: Install npm dependencies
+        working-directory: app
+        run: npm install
+
+      # The official pre-commit action installs pre-commit and runs
+      # all hooks defined in .pre-commit-config.yaml against all files.
+      # If any hook fails, the job fails and shows exactly which files
+      # and which hook caused the problem — same output as locally.
+      - name: Run pre-commit
+        uses: pre-commit/action@v3.0.1

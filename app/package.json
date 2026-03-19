@@ -2,8 +2,8 @@
   "name": "unkenprojekt-frontend",
   "type": "module",
   "scripts": {
-    "lint":     "eslint app/js/",
-    "lint:fix": "eslint app/js/ --fix",
+    "lint":     "eslint js/",
+    "lint:fix": "eslint js/ --fix",
     "test":     "vitest run",
     "test:watch": "vitest"
   },

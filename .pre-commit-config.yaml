@@ -1,61 +1,43 @@
 # .pre-commit-config.yaml
 #
-# Install pre-commit itself:   pip install pre-commit
-# Install these hooks:         pre-commit install
-# Run manually on all files:   pre-commit run --all-files
-#
-# After "pre-commit install", these checks run automatically
-# every time you git commit. If any check fails, the commit
-# is blocked and you fix the issue before trying again.
-# Exactly the same workflow as your Python projects.
+# Install pre-commit:        pip install pre-commit
+# Register the git hook:     pre-commit install
+# Run manually on all files: pre-commit run --all-files
 
 repos:
 
   # ── General file hygiene ──────────────────────────────────────────────
-  # These come from the pre-commit project itself — no extra installs needed.
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.6.0
     hooks:
-      - id: trailing-whitespace      # remove trailing spaces
-      - id: end-of-file-fixer        # ensure files end with a newline
-      - id: check-merge-conflict     # catch leftover <<< merge markers
-      - id: check-yaml               # validate YAML files (GitHub Actions etc.)
-      - id: check-json               # validate JSON files (package.json etc.)
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-merge-conflict
+      - id: check-yaml
+      - id: check-json
 
 
   # ── PHP: PHP-CS-Fixer ─────────────────────────────────────────────────
-  # Runs in --dry-run mode on commit — reports problems without rewriting.
-  # Run "composer run lint:fix" manually to auto-fix, then commit again.
-  #
-  # Why dry-run and not auto-fix on commit?
-  # Auto-fixing modifies files during the commit process, which means
-  # your staged changes and the fixed changes get mixed up. It's cleaner
-  # to fix manually, review the diff, then commit.
+  # Runs in --dry-run mode — reports problems without rewriting.
+  # To auto-fix locally: cd api && composer run lint:fix
   - repo: local
     hooks:
       - id: php-cs-fixer
         name: PHP-CS-Fixer
         language: system
-        # "system" means pre-commit uses whatever is installed on your machine
-        # rather than creating its own environment — Composer's vendor/bin
-        entry: vendor/bin/php-cs-fixer fix --dry-run --diff
+        entry: bash -c 'cd api && vendor/bin/php-cs-fixer fix --dry-run --diff'
         types: [php]
-        pass_filenames: false   # php-cs-fixer finds its own files via .php-cs-fixer.php
+        pass_filenames: false
 
 
-  # ── JavaScript: ESLint ───────────────────────────────────────────────
-  # Same dry-run approach — reports problems, doesn't auto-fix.
-  # Run "npm run lint:fix" manually to auto-fix.
-  #
-  # This hook is marked as optional for now because it requires Node.js.
-  # Once you have Node.js installed and have run "npm install",
-  # remove the "stages: [manual]" line to activate it.
+  # ── JavaScript: ESLint ────────────────────────────────────────────────
+  # Runs from the app/ directory where eslint.config.js lives.
+  # To auto-fix locally: cd app && npm run lint:fix
   - repo: local
     hooks:
       - id: eslint
         name: ESLint
         language: system
-        entry: npx eslint app/js/
+        entry: bash -c 'cd app && npx eslint js/'
         types: [javascript]
         pass_filenames: false
-        stages: [manual]   # ← remove this line once Node.js is installed
