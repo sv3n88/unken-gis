@@ -15,7 +15,7 @@
 // No SQL here. No header() calls. No echo.
 // ─────────────────────────────────────────────────────────────────────────────
 
-namespace Api;
+namespace lib;
 
 class CollectionHandler
 {

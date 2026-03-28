@@ -43,7 +43,15 @@ function loadEnv($path)
 }
 
 // Load .env file from the same directory as config.php
-loadEnv(__DIR__ . '/../.env');
+// and from main directory if not present (should be the case
+// if starting the project locally not dockerized)
+try {
+    loadEnv(__DIR__ . '/../.env');
+} catch (Exception $e) {
+    error_log("Using local .env");
+    loadEnv(__DIR__ . '/../../.env');
+}
+
 
 // Database connection parameters
 define('DB_HOST', getenv('DB_HOST'));
@@ -135,4 +143,14 @@ function sendError($message, $statusCode = 400, $code = null)
         'code' => $code ?: $statusCode,
         'description' => $message,
     ], $statusCode);
+}
+
+/**
+ * Get the base URL
+ */
+function getBaseUrl(): string
+{
+    $proto = $_SERVER['HTTP_X_FORWARDED_PROTO'] ?? 'http';
+    $host  = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    return $proto . '://' . $host . '/api';
 }

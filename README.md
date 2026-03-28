@@ -48,13 +48,19 @@ docker compose up -d
 
 **Development mode** (with live reload / dev settings):
 
-Use a local PostGIS instance for dev mode.
+Use a local PostGIS instance for dev mode:
 
 ```bash
 docker compose -f compose.dev.yml up -d
 ```
 
 The application should now be available at [http://localhost](http://localhost).
+
+Alternatively start locally not in Docker for development and testing:
+
+```bash
+php -S localhost:3000 -t app/
+```
 
 ---
 

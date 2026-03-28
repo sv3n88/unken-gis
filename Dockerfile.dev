@@ -4,13 +4,12 @@ FROM php:8.2-cli-alpine
 RUN apk add --no-cache postgresql-dev && \
     docker-php-ext-install pgsql pdo_pgsql
 
-COPY api/docker/php.ini /usr/local/etc/php/php.ini
+COPY app/api/docker/php.ini /usr/local/etc/php/php.ini
 
 WORKDIR /app
 
 # Copy only specific files and directories
 COPY app /app/
-COPY api /app/api
 COPY .env.docker.dev /app/.env
 
 # Use PHP's built-in web server

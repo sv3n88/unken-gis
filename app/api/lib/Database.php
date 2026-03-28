@@ -15,7 +15,7 @@
 //   - If you switch databases, only this file changes
 // ─────────────────────────────────────────────────────────────────────────────
 
-namespace Api;
+namespace lib;
 
 class Database
 {

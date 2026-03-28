@@ -58,6 +58,9 @@ $path = trim(
     '/'
 );
 
+error_log("This is the requested URL:");
+error_log($path);
+
 
 // ── Route table ───────────────────────────────────────────────────────────────
 //
