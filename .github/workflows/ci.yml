@@ -46,7 +46,7 @@ jobs:
 
       # pre-commit calls "composer run lint" which needs vendor/ to exist
       - name: Install Composer dependencies
-        working-directory: api
+        working-directory: app/api
         run: composer install --no-interaction --prefer-dist
 
       # pre-commit calls "npx eslint" which needs node_modules/ to exist
