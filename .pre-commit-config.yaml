@@ -25,7 +25,7 @@ repos:
       - id: php-cs-fixer
         name: PHP-CS-Fixer
         language: system
-        entry: bash -c 'cd api && vendor/bin/php-cs-fixer fix --dry-run --diff'
+        entry: bash -c 'cd app/api && vendor/bin/php-cs-fixer fix --dry-run --diff'
         types: [php]
         pass_filenames: false
 
